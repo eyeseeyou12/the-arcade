@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notes on the Wall</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --card: #fffdf7;
+    --ink: #2b2b2b;
+    --muted: #8a8478;
+    --accent: #e0575b;
+    --accent-2: #4a7c6f;
+    --border: #e5ddc9;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 28px 20px 18px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 1.6rem;
+    letter-spacing: -0.02em;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .status-banner {
+    background: #fff4d6;
+    border-bottom: 1px solid #eaddaa;
+    color: #7a5c00;
+    text-align: center;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    display: none;
+  }
+
+  .status-banner.show { display: block; }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+  }
+
+  .composer {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    margin-bottom: 28px;
+  }
+
+  .composer .name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .composer .name-row input {
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    background: transparent;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-2);
+    padding: 2px 4px;
+    width: 160px;
+  }
+
+  .composer .name-row input:focus {
+    outline: none;
+    border-bottom-color: var(--accent-2);
+  }
+
+  .composer textarea {
+    width: 100%;
+    min-height: 70px;
+    resize: vertical;
+    border: none;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.4;
+    padding: 4px;
+  }
+
+  .composer textarea:focus {
+    outline: none;
+  }
+
+  .composer-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .char-count {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  button.post-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 9px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s ease, opacity 0.15s ease;
+  }
+
+  button.post-btn:hover { opacity: 0.9; }
+  button.post-btn:active { transform: scale(0.97); }
+  button.post-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+
+  .wall {
+    display: grid;
+    gap: 14px;
+  }
+
+  .note {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    animation: fadeIn 0.25s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+    gap: 10px;
+  }
+
+  .note-author {
+    font-weight: 700;
+    color: var(--accent-2);
+    font-size: 0.9rem;
+  }
+
+  .note-time {
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .note-body {
+    font-size: 0.98rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px 20px;
+    font-size: 0.9rem;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="status-banner" id="statusBanner"></div>
+
+<header>
+  <h1>📌 Notes on the Wall</h1>
+  <p>A public wall anyone can post to. Pick a name (or stay Anonymous) — notes post immediately and stay up permanently for everyone to see.</p>
+</header>
+
+<main>
+  <div class="composer">
+    <div class="name-row">
+      Posting as
+      <input type="text" id="usernameInput" placeholder="pick a name" maxlength="24">
+    </div>
+    <textarea id="messageInput" placeholder="What's on your mind?" maxlength="500"></textarea>
+    <div class="composer-footer">
+      <span class="char-count" id="charCount">500 left</span>
+      <button class="post-btn" id="postBtn">Post</button>
+    </div>
+  </div>
+
+  <div class="wall" id="wall"></div>
+  <div class="empty-state" id="emptyState">No notes yet. Be the first to post one.</div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, query, orderBy, limit,
+    onSnapshot, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // Fill these in with the values from your Firebase project's
+  // web app config (Firebase Console > Project settings > Your apps).
+  const firebaseConfig = {
+    apiKey: "AIzaSyDRFuxwzwDIxo7Eunffk6XexHPDd8UYmHE",
+    authDomain: "notes-on-the-wall.firebaseapp.com",
+    projectId: "notes-on-the-wall",
+    storageBucket: "notes-on-the-wall.firebasestorage.app",
+    messagingSenderId: "220270159224",
+    appId: "1:220270159224:web:14d8143aee53f52cd1d48d"
+  };
+
+  const USERNAME_KEY = 'notesWall.username';
+
+  const usernameInput = document.getElementById('usernameInput');
+  const messageInput = document.getElementById('messageInput');
+  const postBtn = document.getElementById('postBtn');
+  const wall = document.getElementById('wall');
+  const emptyState = document.getElementById('emptyState');
+  const charCount = document.getElementById('charCount');
+  const statusBanner = document.getElementById('statusBanner');
+
+  function showStatus(text) {
+    statusBanner.textContent = text;
+    statusBanner.classList.add('show');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function timeAgo(date) {
+    if (!date) return 'just now';
+    const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function renderNotes(docs) {
+    wall.innerHTML = '';
+    emptyState.style.display = docs.length ? 'none' : 'block';
+
+    docs.forEach(data => {
+      const note = document.createElement('div');
+      note.className = 'note';
+      note.innerHTML = `
+        <div class="note-header">
+          <span class="note-author">${escapeHtml(data.author)}</span>
+          <span class="note-time">${timeAgo(data.createdAt ? data.createdAt.toDate() : null)}</span>
+        </div>
+        <div class="note-body">${escapeHtml(data.text)}</div>
+      `;
+      wall.appendChild(note);
+    });
+  }
+
+  function updateCharCount() {
+    const remaining = 500 - messageInput.value.length;
+    charCount.textContent = `${remaining} left`;
+  }
+
+  let savedUsername = null;
+  try { savedUsername = localStorage.getItem(USERNAME_KEY); } catch {}
+  if (savedUsername) usernameInput.value = savedUsername;
+  updateCharCount();
+  messageInput.addEventListener('input', updateCharCount);
+
+  if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+    showStatus('This board isn’t connected to shared storage yet — add your Firebase config to start sharing notes with other visitors.');
+    postBtn.disabled = true;
+  } else {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const notesRef = collection(db, 'notes');
+    const notesQuery = query(notesRef, orderBy('createdAt', 'desc'), limit(200));
+
+    onSnapshot(notesQuery, (snapshot) => {
+      renderNotes(snapshot.docs.map(d => d.data()));
+    }, (err) => {
+      showStatus('Could not load notes: ' + err.message);
+    });
+
+    async function postMessage() {
+      const text = messageInput.value.trim();
+      if (!text) return;
+
+      let author = usernameInput.value.trim();
+      if (!author) author = 'Anonymous';
+      try { localStorage.setItem(USERNAME_KEY, author); } catch {}
+
+      postBtn.disabled = true;
+      try {
+        await addDoc(notesRef, {
+          author,
+          text,
+          createdAt: serverTimestamp()
+        });
+        messageInput.value = '';
+        updateCharCount();
+      } catch (err) {
+        showStatus('Could not post note: ' + err.message);
+      } finally {
+        postBtn.disabled = false;
+      }
+    }
+
+    postBtn.addEventListener('click', postMessage);
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postMessage();
+    });
+  }
+</script>
+
+</body>
+</html>

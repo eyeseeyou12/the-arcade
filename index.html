@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#0b0e17;
+    --bg2:#131826;
+    --accent:#ff3d5a;
+    --accent2:#00e5ff;
+    --warn:#ffcc00;
+    --text:#fff6e0;
+    --tabbar-h:64px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%; width:100%;
+    background:radial-gradient(1200px 800px at 50% -10%, #1b2340 0%, var(--bg1) 60%);
+    color:var(--text);
+    font-family:'Press Start 2P', monospace;
+    overflow:hidden;
+  }
+  #tabbar{
+    height:var(--tabbar-h);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:0 16px;
+    background:linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.15));
+    border-bottom:3px solid #2a2f42;
+    overflow-x:auto;
+    white-space:nowrap;
+  }
+  #tabbar .brand{
+    font-family:'Bangers', cursive;
+    font-size:22px;
+    letter-spacing:1px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    padding-right:14px;
+    margin-right:6px;
+    border-right:2px solid #2a2f42;
+    flex-shrink:0;
+  }
+  .tab-btn{
+    font-family:'Bangers', cursive;
+    font-size:17px;
+    letter-spacing:1px;
+    color:var(--text);
+    background:#181d2c;
+    border:3px solid #2f3650;
+    border-radius:10px;
+    padding:9px 18px;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:transform .08s ease, background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .tab-btn:hover{ border-color:#4a5578; }
+  .tab-btn:active{ transform:translateY(2px); }
+  .tab-btn.active{
+    background:linear-gradient(180deg,#ffe066,#ffb703);
+    color:#1b1035;
+    border-color:#7a4b00;
+    box-shadow:0 3px 0 #7a4b00;
+  }
+  .tab-btn .dot{
+    display:inline-block; width:8px; height:8px; border-radius:50%;
+    margin-right:8px; vertical-align:middle;
+    background:var(--accent2);
+  }
+  .tab-btn.active .dot{ background:#1b1035; }
+
+  #stage{
+    position:relative;
+    width:100%;
+    height:calc(100% - var(--tabbar-h));
+  }
+  .app-pane{
+    position:absolute; inset:0;
+    display:none;
+  }
+  .app-pane.active{ display:block; }
+  .app-pane iframe{
+    width:100%; height:100%;
+    border:0;
+    background:#0b0e17;
+    display:block;
+  }
+  .loading-msg{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; color:#7a86ad; letter-spacing:1px;
+  }
+</style>
+</head>
+<body>
+
+<div id="tabbar">
+  <span class="brand">THE ARCADE</span>
+  <button class="tab-btn" data-target="notes"><span class="dot"></span>NOTES ON THE WALL</button>
+  <button class="tab-btn" data-target="piano"><span class="dot"></span>KEYBOARD HERO</button>
+  <button class="tab-btn" data-target="typeordie"><span class="dot"></span>TYPE OR DIE</button>
+</div>
+
+<div id="stage">
+  <div class="app-pane" data-pane="notes">
+    <div class="loading-msg">loading notes on the wall…</div>
+  </div>
+  <div class="app-pane" data-pane="piano">
+    <div class="loading-msg">loading keyboard hero…</div>
+  </div>
+  <div class="app-pane" data-pane="typeordie">
+    <div class="loading-msg">loading type or die…</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const SOURCES = {
+    notes: "notes-on-the-wall.html",
+    piano: "piano-hero.html",
+    typeordie: "type-or-die.html"
+  };
+
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panes = {};
+  document.querySelectorAll('.app-pane').forEach(p => { panes[p.dataset.pane] = p; });
+
+  const loaded = {};
+
+  function activate(key){
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.target === key));
+    Object.keys(panes).forEach(k => panes[k].classList.toggle('active', k === key));
+
+    if(!loaded[key]){
+      loaded[key] = true;
+      const pane = panes[key];
+      const iframe = document.createElement('iframe');
+      iframe.src = SOURCES[key];
+      iframe.title = key;
+      iframe.setAttribute('allow', 'autoplay');
+      pane.innerHTML = '';
+      pane.appendChild(iframe);
+    }
+  }
+
+  tabs.forEach(t => {
+    t.addEventListener('click', () => activate(t.dataset.target));
+  });
+
+  // default to the first tab
+  activate('notes');
+})();
+</script>
+
+</body>
+</html>
