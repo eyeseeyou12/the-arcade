@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peg Solitaire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cloth:#f2e6c8;
+    --gingham:#b5322b;
+    --panel:#fff8e9;
+    --panel-border:#6b4420;
+    --accent:#b5322b;
+    --accent2:#2f6b3a;
+    --safe:#2f6b3a;
+    --warn:#c9861c;
+    --danger:#b5322b;
+    --text:#3b2413;
+    --wood:#a97640;
+    --wood-dark:#6b4420;
+    --hole:#241305;
+    --peg:#c9402f;
+    --peg-dark:#8f2418;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;min-height:100%;
+    background-color:var(--cloth);
+    background-image:
+      repeating-linear-gradient(0deg, rgba(181,50,43,.16) 0 18px, transparent 18px 36px),
+      repeating-linear-gradient(90deg, rgba(181,50,43,.16) 0 18px, transparent 18px 36px);
+    color:var(--text);
+    font-family:'Special Elite', monospace;
+    -webkit-font-smoothing:antialiased;
+  }
+  .heading{font-family:'Rye', serif; letter-spacing:1px;}
+  #app{position:relative; width:100vw; min-height:100vh; overflow-x:hidden;}
+  .screen{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:20px;
+    padding:24px 16px 60px;
+    text-align:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .35s ease;
+    min-height:100vh;
+  }
+  .screen.active{opacity:1; pointer-events:auto; position:relative;}
+
+  .title-main{
+    font-size:min(11vw,64px);
+    color:var(--accent);
+    text-shadow: 3px 3px 0 #d8c48c;
+    transform:rotate(-1deg);
+    line-height:1;
+    margin-bottom:2px;
+  }
+  .title-sub{
+    font-family:'Special Elite', monospace;
+    font-size:13px;
+    color:var(--accent2);
+    letter-spacing:1px;
+    max-width:480px;
+    line-height:1.6;
+  }
+
+  .btn{
+    font-family:'Rye', serif;
+    font-size:20px;
+    letter-spacing:1px;
+    color:var(--panel);
+    background:linear-gradient(180deg, #c9402f, var(--accent));
+    border:3px solid var(--wood-dark);
+    border-radius:8px;
+    padding:12px 28px;
+    cursor:pointer;
+    box-shadow:0 5px 0 var(--wood-dark), 0 8px 14px rgba(0,0,0,.25);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .btn:hover{filter:brightness(1.06);}
+  .btn:active{transform:translateY(5px); box-shadow:0 0 0 var(--wood-dark), 0 3px 6px rgba(0,0,0,.25);}
+  .btn.secondary{
+    background:linear-gradient(180deg, #3d7d49, var(--accent2));
+    border-color:#1f3f26;
+    box-shadow:0 5px 0 #1f3f26, 0 8px 14px rgba(0,0,0,.25);
+  }
+  .btn.secondary:active{box-shadow:0 0 0 #1f3f26, 0 3px 6px rgba(0,0,0,.25);}
+  .btn.small{font-size:15px; padding:8px 18px; box-shadow:0 4px 0 var(--wood-dark), 0 6px 10px rgba(0,0,0,.25);}
+  .btn.small:active{box-shadow:0 0 0 var(--wood-dark), 0 3px 6px rgba(0,0,0,.25);}
+  .btn:disabled{opacity:.4; cursor:not-allowed; filter:none;}
+
+  .row{display:flex; gap:12px; flex-wrap:wrap; justify-content:center;}
+
+  /* --- board --- */
+  .board-wrap{
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 3px, transparent 3px 22px),
+      linear-gradient(180deg, var(--wood), var(--wood-dark));
+    border:8px solid var(--wood-dark);
+    border-radius:10px;
+    padding:22px 26px 26px;
+    box-shadow:0 10px 0 #4a2c10, 0 16px 26px rgba(0,0,0,.3);
+  }
+  .board{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  }
+  .board-row{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+  }
+  .hole{
+    width:44px; height:44px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #3a2716, var(--hole) 70%);
+    box-shadow:inset 0 3px 6px rgba(0,0,0,.7);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    position:relative;
+    transition:box-shadow .15s ease;
+  }
+  .hole.empty-select{box-shadow:inset 0 3px 6px rgba(0,0,0,.7), 0 0 0 3px var(--warn);}
+  .peg{
+    width:34px; height:34px;
+    border-radius:50%;
+    background:radial-gradient(circle at 32% 28%, #ff9a7a, var(--peg) 55%, var(--peg-dark) 100%);
+    box-shadow:0 3px 4px rgba(0,0,0,.5), inset 0 -3px 4px rgba(0,0,0,.35);
+    pointer-events:none;
+    transition:transform .12s ease;
+  }
+  .hole.selected .peg{
+    transform:scale(1.12) translateY(-3px);
+    box-shadow:0 6px 8px rgba(0,0,0,.6), 0 0 0 3px var(--accent2), inset 0 -3px 4px rgba(0,0,0,.35);
+  }
+  .hole.landable{
+    box-shadow:inset 0 3px 6px rgba(0,0,0,.7), 0 0 0 3px var(--safe);
+  }
+  .hole.landable::after{
+    content:'';
+    position:absolute;
+    width:14px; height:14px;
+    border-radius:50%;
+    background:var(--safe);
+    opacity:.8;
+  }
+  .hole.just-jumped .peg{animation:pop .3s ease;}
+  @keyframes pop{
+    0%{transform:scale(1);}
+    50%{transform:scale(1.35);}
+    100%{transform:scale(1);}
+  }
+
+  .hud{
+    display:flex; gap:24px; justify-content:center; flex-wrap:wrap;
+    font-size:13px; color:var(--text);
+  }
+  .hud .stat{color:var(--warn); font-weight:bold;}
+
+  .hint{font-size:12px; color:var(--text); opacity:.75; max-width:420px; line-height:1.7;}
+
+  a.back-link{
+    color:var(--accent2);
+    font-size:12px;
+    text-decoration:none;
+    border-bottom:1px dashed var(--accent2);
+  }
+
+  .rating{
+    font-family:'Rye', serif;
+    font-size:min(9vw,42px);
+    color:var(--accent);
+    text-shadow:3px 3px 0 #d8c48c;
+    line-height:1.2;
+  }
+  .pegs-left{font-size:14px; color:var(--accent2);}
+
+  @media (max-width:420px){
+    .hole{width:34px; height:34px;}
+    .peg{width:26px; height:26px;}
+    .board-row{gap:7px;}
+    .board{gap:7px;}
+    .board-wrap{padding:16px 16px 18px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- START SCREEN -->
+  <section class="screen active" id="screen-start">
+    <div class="title-main heading">PEG SOLITAIRE</div>
+    <div class="title-sub">THE CLASSIC TRIANGLE BOARD GAME FROM THE DINER TABLE</div>
+    <div class="hint">Jump pegs over each other into empty holes to remove them.
+      Tap a peg to select it, then tap a glowing hole to jump. Leave just one peg
+      behind to prove you're a genius.</div>
+    <div class="row">
+      <button class="btn" id="startRandomBtn">QUICK START</button>
+      <button class="btn secondary" id="startPickBtn">PICK YOUR HOLE</button>
+    </div>
+    <a class="back-link" href="index.html">&larr; back to the arcade</a>
+  </section>
+
+  <!-- PICK HOLE SCREEN -->
+  <section class="screen" id="screen-pick">
+    <div class="title-main heading" style="font-size:min(8vw,40px);">CHOOSE A STARTING HOLE</div>
+    <div class="hint">Tap the peg you want to remove first. The one you leave open is the one that decides your fate.</div>
+    <div class="board-wrap"><div class="board" id="pickBoard"></div></div>
+    <div class="row">
+      <button class="btn small secondary" id="pickBackBtn">BACK</button>
+    </div>
+  </section>
+
+  <!-- GAME SCREEN -->
+  <section class="screen" id="screen-game">
+    <div class="title-main heading" style="font-size:min(9vw,46px); margin-bottom:0;">PEG SOLITAIRE</div>
+    <div class="hud">
+      <div>PEGS: <span class="stat" id="pegCount">14</span></div>
+      <div>MOVES: <span class="stat" id="moveCount">0</span></div>
+    </div>
+    <div class="board-wrap"><div class="board" id="gameBoard"></div></div>
+    <div class="row">
+      <button class="btn small secondary" id="undoBtn">UNDO</button>
+      <button class="btn small secondary" id="resetBtn">RESET</button>
+    </div>
+  </section>
+
+  <!-- END SCREEN -->
+  <section class="screen" id="screen-end">
+    <div class="title-main heading" style="font-size:min(9vw,46px);">GAME OVER</div>
+    <div class="rating" id="ratingText">GENIUS</div>
+    <div class="pegs-left" id="pegsLeftText">1 peg remaining</div>
+    <div class="row">
+      <button class="btn" id="playAgainBtn">PLAY AGAIN</button>
+    </div>
+    <a class="back-link" href="index.html">&larr; back to the arcade</a>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // Triangular board: row r (0..4) has r+1 holes, col 0..r
+  const ROWS = 5;
+  function forEachHole(fn){
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<=r;c++) fn(r,c);
+    }
+  }
+  function key(r,c){ return r+'_'+c; }
+  function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<=r; }
+
+  // 6 jump directions on a triangular grid: [mid delta, dest delta]
+  const DIRS = [
+    { mid:[0,-1], dest:[0,-2] },   // left
+    { mid:[0,1],  dest:[0,2]  },   // right
+    { mid:[-1,-1],dest:[-2,-2]},   // up-left
+    { mid:[-1,0], dest:[-2,0] },   // up-right
+    { mid:[1,0],  dest:[2,0]  },   // down-left
+    { mid:[1,1],  dest:[2,2]  },   // down-right
+  ];
+
+  function freshPegs(){
+    const pegs = {};
+    forEachHole((r,c)=>{ pegs[key(r,c)] = true; });
+    return pegs;
+  }
+
+  function possibleJumps(pegs, r, c){
+    if (!pegs[key(r,c)]) return [];
+    const moves = [];
+    for (const d of DIRS){
+      const mr = r+d.mid[0], mc = c+d.mid[1];
+      const dr = r+d.dest[0], dc = c+d.dest[1];
+      if (!inBounds(mr,mc) || !inBounds(dr,dc)) continue;
+      if (pegs[key(mr,mc)] && !pegs[key(dr,dc)]){
+        moves.push({ from:[r,c], mid:[mr,mc], to:[dr,dc] });
+      }
+    }
+    return moves;
+  }
+
+  function anyMovesLeft(pegs){
+    let found = false;
+    forEachHole((r,c)=>{
+      if (found) return;
+      if (possibleJumps(pegs, r, c).length) found = true;
+    });
+    return found;
+  }
+
+  function pegCount(pegs){
+    return Object.values(pegs).filter(Boolean).length;
+  }
+
+  const ratings = [
+    { max:1, text:'GENIUS' },
+    { max:2, text:'PURTY GOOD' },
+    { max:3, text:'JUST PLAIN EG-NO-RAMUS' },
+    { max:Infinity, text:'YOU\'RE JUST PLAIN DUMB!' },
+  ];
+  function ratingFor(n){
+    return ratings.find(r => n <= r.max).text;
+  }
+
+  // ----- screens -----
+  const screens = {
+    start: document.getElementById('screen-start'),
+    pick: document.getElementById('screen-pick'),
+    game: document.getElementById('screen-game'),
+    end: document.getElementById('screen-end'),
+  };
+  function showScreen(name){
+    Object.values(screens).forEach(s=>s.classList.remove('active'));
+    screens[name].classList.add('active');
+  }
+
+  // ----- pick-a-hole screen -----
+  const pickBoard = document.getElementById('pickBoard');
+  function renderPickBoard(){
+    pickBoard.innerHTML = '';
+    for (let r=0;r<ROWS;r++){
+      const rowEl = document.createElement('div');
+      rowEl.className = 'board-row';
+      for (let c=0;c<=r;c++){
+        const hole = document.createElement('div');
+        hole.className = 'hole';
+        const peg = document.createElement('div');
+        peg.className = 'peg';
+        hole.appendChild(peg);
+        hole.addEventListener('click', ()=>{
+          startGame(r,c);
+        });
+        rowEl.appendChild(hole);
+      }
+      pickBoard.appendChild(rowEl);
+    }
+  }
+
+  // ----- game state -----
+  let pegs = {};
+  let history = [];
+  let moves = 0;
+  let selected = null; // [r,c]
+
+  const gameBoard = document.getElementById('gameBoard');
+  const pegCountEl = document.getElementById('pegCount');
+  const moveCountEl = document.getElementById('moveCount');
+  const undoBtn = document.getElementById('undoBtn');
+
+  const holeEls = {}; // key -> {holeEl, pegEl}
+
+  function buildGameBoard(){
+    gameBoard.innerHTML = '';
+    for (let r=0;r<ROWS;r++){
+      const rowEl = document.createElement('div');
+      rowEl.className = 'board-row';
+      for (let c=0;c<=r;c++){
+        const hole = document.createElement('div');
+        hole.className = 'hole';
+        hole.dataset.r = r;
+        hole.dataset.c = c;
+        const peg = document.createElement('div');
+        peg.className = 'peg';
+        hole.appendChild(peg);
+        hole.addEventListener('click', ()=> onHoleClick(r,c));
+        rowEl.appendChild(hole);
+        holeEls[key(r,c)] = { holeEl:hole, pegEl:peg };
+      }
+      gameBoard.appendChild(rowEl);
+    }
+  }
+
+  function startGame(emptyR, emptyC){
+    pegs = freshPegs();
+    pegs[key(emptyR,emptyC)] = false;
+    history = [];
+    moves = 0;
+    selected = null;
+    buildGameBoard();
+    renderGame();
+    showScreen('game');
+  }
+
+  function renderGame(){
+    forEachHole((r,c)=>{
+      const has = pegs[key(r,c)];
+      const { holeEl, pegEl } = holeEls[key(r,c)];
+      pegEl.style.display = has ? 'block' : 'none';
+      holeEl.classList.remove('selected','landable','empty-select');
+      if (selected && selected[0]===r && selected[1]===c) holeEl.classList.add('selected');
+    });
+    if (selected){
+      const jumps = possibleJumps(pegs, selected[0], selected[1]);
+      jumps.forEach(m=>{
+        holeEls[key(m.to[0],m.to[1])].holeEl.classList.add('landable');
+      });
+    }
+    pegCountEl.textContent = pegCount(pegs);
+    moveCountEl.textContent = moves;
+    undoBtn.disabled = history.length === 0;
+
+    if (!anyMovesLeft(pegs)){
+      setTimeout(()=> endGame(), 400);
+    }
+  }
+
+  function onHoleClick(r,c){
+    const has = pegs[key(r,c)];
+    if (has){
+      // select this peg if it has a legal jump, or just re-select
+      selected = [r,c];
+      renderGame();
+      return;
+    }
+    if (!selected) return;
+    const jumps = possibleJumps(pegs, selected[0], selected[1]);
+    const move = jumps.find(m => m.to[0]===r && m.to[1]===c);
+    if (!move) return;
+
+    history.push({
+      from: move.from, mid: move.mid, to: move.to
+    });
+    pegs[key(move.from[0],move.from[1])] = false;
+    pegs[key(move.mid[0],move.mid[1])] = false;
+    pegs[key(move.to[0],move.to[1])] = true;
+    moves++;
+    selected = null;
+    renderGame();
+
+    const jumpedEl = holeEls[key(move.to[0],move.to[1])].holeEl;
+    jumpedEl.classList.add('just-jumped');
+    setTimeout(()=> jumpedEl.classList.remove('just-jumped'), 320);
+  }
+
+  function undo(){
+    const last = history.pop();
+    if (!last) return;
+    pegs[key(last.from[0],last.from[1])] = true;
+    pegs[key(last.mid[0],last.mid[1])] = true;
+    pegs[key(last.to[0],last.to[1])] = false;
+    moves = Math.max(0, moves-1);
+    selected = null;
+    renderGame();
+  }
+
+  function endGame(){
+    const n = pegCount(pegs);
+    document.getElementById('ratingText').textContent = ratingFor(n);
+    document.getElementById('pegsLeftText').textContent =
+      n === 1 ? '1 peg remaining' : n + ' pegs remaining';
+    showScreen('end');
+  }
+
+  // ----- wiring -----
+  document.getElementById('startRandomBtn').addEventListener('click', ()=>{
+    // classic default: remove a peg near the middle of the board
+    startGame(2,1);
+  });
+  document.getElementById('startPickBtn').addEventListener('click', ()=>{
+    renderPickBoard();
+    showScreen('pick');
+  });
+  document.getElementById('pickBackBtn').addEventListener('click', ()=> showScreen('start'));
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  document.getElementById('resetBtn').addEventListener('click', ()=> showScreen('start'));
+  document.getElementById('playAgainBtn').addEventListener('click', ()=> showScreen('start'));
+
+})();
+</script>
+
+</body>
+</html>
