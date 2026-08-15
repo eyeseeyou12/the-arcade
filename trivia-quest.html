@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trivia Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0b0b1e;
+    --bg-panel:#161636;
+    --bg-panel2:#1f1f4a;
+    --accent:#ffce00;
+    --accent2:#00e5c7;
+    --danger:#ff4d6d;
+    --good:#5bffa1;
+    --text:#f3f3ff;
+    --muted:#9a9ad0;
+    --border:#3a3a7a;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:
+      radial-gradient(circle at 20% 20%, #23234f 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, #2a1f4f 0%, transparent 45%),
+      var(--bg-deep);
+    color:var(--text);
+    font-family:'VT323', monospace;
+    font-size:20px;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  h1,h2,h3, .pixel{
+    font-family:'Press Start 2P', monospace;
+  }
+  .screen{
+    display:none;
+    max-width:1100px;
+    margin:0 auto;
+    padding:24px 16px 60px;
+  }
+  .screen.active{display:block;}
+  header.app-header{
+    text-align:center;
+    padding:28px 16px 10px;
+  }
+  header.app-header h1{
+    font-size:28px;
+    color:var(--accent);
+    text-shadow:3px 3px 0 #7a4b00, 0 0 20px rgba(255,206,0,.4);
+    letter-spacing:2px;
+    margin:0;
+  }
+  header.app-header p{
+    color:var(--muted);
+    font-size:18px;
+    margin-top:10px;
+  }
+  header.app-header .back-link{
+    display:inline-block;
+    margin-top:10px;
+    color:var(--accent2);
+    text-decoration:none;
+    font-size:15px;
+    border-bottom:1px dashed var(--accent2);
+  }
+  header.app-header .back-link:hover{opacity:.8;}
+
+  .status-banner{
+    max-width:1100px;
+    margin:0 auto 16px;
+    padding:10px 16px;
+    border-radius:8px;
+    font-size:15px;
+    text-align:center;
+    display:none;
+  }
+  .status-banner.show{display:block;}
+  .status-banner.warn{background:#3a2a12; color:#ffce7a; border:2px solid var(--accent);}
+  .status-banner.error{background:#3a0f1f; color:#ff9db0; border:2px solid var(--danger);}
+  .status-banner.info{background:#0f2a3a; color:#8fd8ff; border:2px solid #2fb4e0;}
+
+  .panel{
+    background:linear-gradient(180deg, var(--bg-panel2), var(--bg-panel));
+    border:3px solid var(--border);
+    border-radius:10px;
+    padding:20px;
+    margin-bottom:20px;
+    box-shadow:0 0 0 4px #0b0b1e inset, 0 8px 0 rgba(0,0,0,.35);
+  }
+  .panel h2{
+    font-size:16px;
+    color:var(--accent2);
+    margin:0 0 16px;
+    letter-spacing:1px;
+  }
+
+  /* ---- Topic picker ---- */
+  .topic-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(220px,1fr));
+    gap:12px;
+  }
+  .topic-card{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:#12122c;
+    border:2px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    cursor:pointer;
+    transition:transform .1s, border-color .15s, background .15s;
+    user-select:none;
+  }
+  .topic-card:hover{transform:translateY(-2px);}
+  .topic-card.selected{
+    border-color:var(--accent);
+    background:#2a2a12;
+    box-shadow:0 0 12px rgba(255,206,0,.35);
+  }
+  .topic-card.locked{cursor:default; opacity:.85;}
+  .topic-card .emoji{font-size:28px;}
+  .topic-card .name{font-size:19px;}
+  .topic-card .check{
+    margin-left:auto;
+    width:20px;height:20px;
+    border:2px solid var(--muted);
+    border-radius:4px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;
+    color:var(--bg-deep);
+  }
+  .topic-card.selected .check{background:var(--accent);border-color:var(--accent);}
+
+  /* ---- Join form ---- */
+  .join-form{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    max-width:420px;
+  }
+  .player-name-input{
+    width:100%;
+    background:#0b0b1e;
+    border:2px solid var(--border);
+    color:var(--text);
+    font-family:'VT323', monospace;
+    font-size:19px;
+    padding:10px 12px;
+    border-radius:6px;
+  }
+  .avatar-row{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .avatar-choice{
+    width:44px;height:44px;
+    border-radius:8px;
+    border:2px solid transparent;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    background:#0b0b1e;
+    opacity:.55;
+    transition:opacity .15s, border-color .15s, transform .15s;
+  }
+  .avatar-choice:hover{opacity:.85;}
+  .avatar-choice.taken{opacity:.15; cursor:not-allowed; pointer-events:none;}
+  .avatar-choice.selected{opacity:1; border-color:var(--accent); transform:scale(1.08);}
+  .avatar-choice svg{width:28px;height:28px;}
+
+  .you-card{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:#12122c;
+    border:2px solid var(--accent);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+  .you-card .avatar-icon{width:36px;height:36px;}
+  .you-card .info{flex:1;}
+  .you-card .info .nm{font-size:20px;}
+  .you-card .info .st{color:var(--muted); font-size:14px;}
+
+  /* ---- Lobby lists ---- */
+  .roster-list{display:flex; flex-direction:column; gap:8px;}
+  .roster-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:#12122c;
+    border:2px solid var(--border);
+    border-radius:8px;
+    padding:8px 12px;
+  }
+  .roster-row.me{border-color:var(--accent);}
+  .roster-row .avatar-icon{width:28px;height:28px; flex-shrink:0;}
+  .roster-row .nm{flex:1; font-size:18px;}
+  .roster-row .you-tag{
+    font-size:12px;
+    color:var(--accent);
+    font-family:'Press Start 2P', monospace;
+  }
+  .roster-row .queue-num{
+    font-size:14px;
+    color:var(--muted);
+    font-family:'Press Start 2P', monospace;
+  }
+  .empty-roster{color:var(--muted); font-size:16px; padding:6px 2px;}
+
+  .add-player-btn{
+    width:100%;
+    padding:16px;
+    background:transparent;
+    border:2px dashed var(--muted);
+    color:var(--muted);
+    border-radius:8px;
+    cursor:pointer;
+    font-family:'VT323', monospace;
+    font-size:19px;
+  }
+  .add-player-btn:hover{color:var(--accent); border-color:var(--accent);}
+
+  .btn{
+    font-family:'Press Start 2P', monospace;
+    font-size:13px;
+    padding:14px 22px;
+    border-radius:8px;
+    border:none;
+    cursor:pointer;
+    color:#12122c;
+    background:var(--accent);
+    box-shadow:0 4px 0 #7a5c00;
+    transition:transform .08s, box-shadow .08s;
+  }
+  .btn:active{transform:translateY(3px); box-shadow:0 1px 0 #7a5c00;}
+  .btn.secondary{
+    background:var(--accent2);
+    box-shadow:0 4px 0 #006b5c;
+  }
+  .btn.danger{
+    background:var(--danger);
+    box-shadow:0 4px 0 #8a0f28;
+  }
+  .btn:disabled{
+    background:#444470;
+    color:#8888aa;
+    box-shadow:0 4px 0 #202040;
+    cursor:not-allowed;
+  }
+  .btn-row{display:flex; gap:14px; justify-content:center; margin-top:8px; flex-wrap:wrap;}
+
+  .hint{color:var(--muted); font-size:15px; margin-top:6px;}
+  .error-msg{color:var(--danger); font-size:16px; margin-top:10px; min-height:20px; text-align:center;}
+
+  /* ---- Game screen layout ---- */
+  .game-wrap{
+    display:grid;
+    grid-template-columns: 1fr 300px;
+    gap:18px;
+    align-items:start;
+  }
+  @media (max-width:860px){
+    .game-wrap{grid-template-columns:1fr;}
+  }
+
+  .board-outer{
+    background:#0e0e2a;
+    border:3px solid var(--border);
+    border-radius:12px;
+    padding:16px;
+    overflow:auto;
+  }
+  .board-grid{
+    position:relative;
+    display:grid;
+    gap:5px;
+  }
+  .cell{
+    position:relative;
+    border-radius:6px;
+    background:#1a1a44;
+    border:2px solid #2c2c66;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:20px;
+    min-width:52px;
+    aspect-ratio:1/1;
+  }
+  .cell .idx{
+    position:absolute;
+    top:2px; left:4px;
+    font-size:10px;
+    color:#5a5a9a;
+    font-family:'Press Start 2P', monospace;
+  }
+  .cell.start{background:#123a2a; border-color:var(--good);}
+  .cell.finish{background:#3a2a12; border-color:var(--accent);}
+  .cell.type-safe{background:#0f2a3a; border-color:#2fb4e0;}
+  .cell.type-wormhole{background:#2a0f3a; border-color:#b04fff;}
+  .cell.type-twist{background:#3a0f24; border-color:var(--danger);}
+  .cell.type-bonus{background:#123a12; border-color:var(--good);}
+  .cell.type-swap{background:#3a3a0f; border-color:var(--accent);}
+  .cell .type-icon{font-size:18px; opacity:.9;}
+
+  .tokens-in-cell{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:1px;
+    pointer-events:none;
+  }
+  .token{
+    width:20px;height:20px;
+    filter:drop-shadow(0 2px 1px rgba(0,0,0,.6));
+    transition:all .4s ease;
+  }
+  .token svg{width:100%;height:100%;}
+
+  .side-panel{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .turn-card{
+    background:linear-gradient(180deg, var(--bg-panel2), var(--bg-panel));
+    border:3px solid var(--accent);
+    border-radius:10px;
+    padding:16px;
+    box-shadow:0 0 18px rgba(255,206,0,.25);
+  }
+  .turn-card h3{margin:0 0 8px; font-size:14px; color:var(--accent);}
+  .current-player-badge{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .current-player-badge .avatar-icon{width:36px;height:36px;}
+  .current-player-badge .name{font-size:22px;}
+  .waiting-note{color:var(--muted); font-size:15px;}
+
+  .standings{
+    background:#12122c;
+    border:2px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+  }
+  .standings h3{font-size:12px; color:var(--muted); margin:0 0 10px;}
+  .standing-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 4px;
+    border-radius:6px;
+  }
+  .standing-row.active-turn{background:rgba(255,206,0,.12);}
+  .standing-row.me{outline:1px dashed var(--accent2);}
+  .standing-row .avatar-icon{width:24px;height:24px;flex-shrink:0;}
+  .standing-row .nm{flex:1; font-size:17px;}
+  .standing-row .pos{color:var(--muted); font-size:15px;}
+  .badge-flag{
+    font-size:12px;
+    padding:1px 5px;
+    border-radius:4px;
+    margin-left:4px;
+  }
+  .badge-flag.safe{background:#0f2a3a; color:#6fd6ff;}
+  .badge-flag.worm{background:#2a0f3a; color:#d38cff;}
+  .badge-flag.twist{background:#3a0f24; color:#ff9db0;}
+
+  .legend{
+    background:#12122c;
+    border:2px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+    font-size:14px;
+    color:var(--muted);
+  }
+  .legend h3{font-size:12px; color:var(--muted); margin:0 0 8px;}
+  .legend-row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+  .legend-swatch{width:16px;height:16px;border-radius:4px; flex-shrink:0;}
+
+  .log-panel{
+    background:#12122c;
+    border:2px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+    font-size:14px;
+    color:var(--muted);
+    max-height:160px;
+    overflow-y:auto;
+  }
+  .log-panel h3{font-size:12px; color:var(--muted); margin:0 0 8px;}
+  .log-row{margin-bottom:4px; line-height:1.35;}
+
+  /* ---- Modal ---- */
+  .modal-overlay{
+    position:fixed; inset:0;
+    background:rgba(4,4,16,.82);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:16px;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal{
+    background:linear-gradient(180deg, var(--bg-panel2), var(--bg-panel));
+    border:3px solid var(--accent);
+    border-radius:12px;
+    padding:26px;
+    max-width:560px;
+    width:100%;
+    box-shadow:0 0 40px rgba(255,206,0,.3);
+    max-height:88vh;
+    overflow-y:auto;
+  }
+  .modal h3{margin:0 0 6px; color:var(--accent); font-size:15px;}
+  .modal .sub{color:var(--muted); font-size:16px; margin-bottom:14px;}
+  .spectator-tag{
+    display:inline-block;
+    background:#0b0b1e;
+    border:2px solid var(--muted);
+    color:var(--muted);
+    padding:3px 10px;
+    border-radius:6px;
+    font-size:13px;
+    margin-bottom:10px;
+  }
+  .diff-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:10px;
+    margin-top:10px;
+  }
+  @media (max-width:520px){ .diff-grid{grid-template-columns:1fr;} }
+  .diff-btn{
+    background:#0b0b1e;
+    border:2px solid var(--border);
+    border-radius:8px;
+    padding:14px 10px;
+    cursor:pointer;
+    text-align:center;
+    color:var(--text);
+    transition:border-color .15s, transform .1s;
+  }
+  .diff-btn:hover{transform:translateY(-2px);}
+  .diff-btn:disabled{opacity:.4; cursor:default; transform:none;}
+  .diff-btn .lbl{font-family:'Press Start 2P', monospace; font-size:12px; display:block; margin-bottom:8px;}
+  .diff-btn .rng{font-size:15px; color:var(--muted);}
+  .diff-btn.easy{border-color:var(--good);}
+  .diff-btn.easy .lbl{color:var(--good);}
+  .diff-btn.medium{border-color:var(--accent);}
+  .diff-btn.medium .lbl{color:var(--accent);}
+  .diff-btn.genius{border-color:var(--danger);}
+  .diff-btn.genius .lbl{color:var(--danger);}
+
+  .cat-tag{
+    display:inline-block;
+    background:#0b0b1e;
+    border:2px solid var(--accent2);
+    color:var(--accent2);
+    padding:4px 10px;
+    border-radius:6px;
+    font-size:14px;
+    margin-bottom:12px;
+  }
+  .question-text{
+    font-size:22px;
+    line-height:1.4;
+    margin:14px 0 18px;
+  }
+  .choices{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .choice-btn{
+    background:#0b0b1e;
+    border:2px solid var(--border);
+    color:var(--text);
+    text-align:left;
+    padding:12px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    font-family:'VT323', monospace;
+    font-size:19px;
+    transition:border-color .15s, background .15s;
+  }
+  .choice-btn:hover{border-color:var(--accent2);}
+  .choice-btn.correct{background:#0f3a22; border-color:var(--good); color:var(--good);}
+  .choice-btn.wrong{background:#3a0f1f; border-color:var(--danger); color:var(--danger);}
+  .choice-btn:disabled{cursor:default;}
+
+  .result-box{
+    text-align:center;
+    padding:10px 0;
+  }
+  .result-box .verdict{
+    font-family:'Press Start 2P', monospace;
+    font-size:18px;
+    margin-bottom:10px;
+  }
+  .result-box .verdict.win{color:var(--good);}
+  .result-box .verdict.lose{color:var(--danger);}
+  .result-box .move-amt{font-size:24px; margin-bottom:14px;}
+
+  .target-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:12px;
+  }
+  .target-btn{
+    background:#0b0b1e;
+    border:2px solid var(--border);
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:'VT323', monospace;
+    font-size:18px;
+  }
+  .target-btn:hover{border-color:var(--danger);}
+  .target-btn .avatar-icon{width:26px;height:26px;}
+
+  .event-banner{
+    text-align:center;
+    font-family:'Press Start 2P', monospace;
+    font-size:13px;
+    padding:12px;
+    border-radius:8px;
+    margin-bottom:14px;
+  }
+  .event-banner.safe{background:#0f2a3a; color:#6fd6ff; border:2px solid #2fb4e0;}
+  .event-banner.worm{background:#2a0f3a; color:#d38cff; border:2px solid #b04fff;}
+  .event-banner.twist{background:#3a0f24; color:#ff9db0; border:2px solid var(--danger);}
+  .event-banner.bonus{background:#123a12; color:#8dffb0; border:2px solid var(--good);}
+  .event-banner.swap{background:#3a3a0f; color:#ffe98d; border:2px solid var(--accent);}
+  .event-banner.win{background:#3a2a12; color:var(--accent); border:2px solid var(--accent); font-size:16px;}
+  .event-banner.force{background:#3a1a3a; color:#e08bff; border:2px solid #b04fff;}
+
+  .reward-badge{
+    display:flex;
+    gap:14px;
+    justify-content:center;
+    margin:10px 0 16px;
+    font-family:'Press Start 2P', monospace;
+    font-size:13px;
+  }
+  .reward-badge span{padding:8px 12px; border-radius:8px;}
+  .reward-badge .rw-correct{background:#0f3a22; color:var(--good); border:2px solid var(--good);}
+  .reward-badge .rw-wrong{background:#3a0f1f; color:var(--danger); border:2px solid var(--danger);}
+
+  footer.note{
+    text-align:center;
+    color:var(--muted);
+    font-size:14px;
+    padding:20px;
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>&#127922; TRIVIA QUEST</h1>
+  <p>Answer trivia. Move your piece. Watch your back. Live &mdash; everyone on this page plays together.</p>
+  <a class="back-link" href="index.html">&larr; Back to the Arcade</a>
+</header>
+
+<div class="status-banner" id="status-banner"></div>
+
+<!-- ============ LOBBY SCREEN ============ -->
+<div class="screen active" id="screen-lobby">
+
+  <div class="panel" id="join-panel">
+    <h2>Join the Game</h2>
+    <div class="join-form" id="join-form">
+      <input class="player-name-input" id="join-name-input" placeholder="Enter your name" maxlength="16">
+      <div class="avatar-row" id="join-avatar-row"></div>
+      <div class="btn-row" style="justify-content:flex-start;">
+        <button class="btn" id="join-btn" type="button">Join</button>
+      </div>
+    </div>
+    <div class="you-card" id="you-card" style="display:none;">
+      <div class="avatar-icon" id="you-avatar-icon"></div>
+      <div class="info">
+        <div class="nm" id="you-name"></div>
+        <div class="st" id="you-status"></div>
+      </div>
+      <button class="btn danger" id="leave-btn" type="button" style="font-size:11px; display:none;">Leave</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Choose Topics</h2>
+    <div class="topic-grid" id="topic-grid"></div>
+    <div class="hint">Anyone in the lobby can toggle topics. Selected topics are drawn from at random each turn.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Players (<span id="active-count">0</span>/6)</h2>
+    <div class="roster-list" id="active-roster"></div>
+  </div>
+
+  <div class="panel" id="queue-panel" style="display:none;">
+    <h2>Queue</h2>
+    <div class="roster-list" id="queue-roster"></div>
+    <div class="hint">The board is full at 6 &mdash; queued players are promoted automatically as slots open up.</div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="start-game-btn" type="button">Start Game</button>
+  </div>
+  <div class="error-msg" id="setup-error"></div>
+
+  <footer class="note">One shared game, live for everyone on this page. After each round, the bottom half of the standings rotate out to the back of the queue.</footer>
+</div>
+
+<!-- ============ GAME SCREEN ============ -->
+<div class="screen" id="screen-game">
+  <div class="game-wrap">
+    <div class="board-outer">
+      <div class="board-grid" id="board-grid"></div>
+    </div>
+    <div class="side-panel">
+      <div class="turn-card">
+        <h3>CURRENT TURN</h3>
+        <div class="current-player-badge" id="current-player-badge"></div>
+        <div class="btn-row" style="justify-content:flex-start;">
+          <button class="btn secondary" id="take-turn-btn" type="button" style="font-size:11px;">Take Turn</button>
+        </div>
+        <div class="waiting-note" id="waiting-note"></div>
+      </div>
+      <div class="standings">
+        <h3>STANDINGS</h3>
+        <div id="standings-list"></div>
+      </div>
+      <div class="legend">
+        <h3>BOARD KEY</h3>
+        <div class="legend-row"><div class="legend-swatch" style="background:#0f2a3a;border:1px solid #2fb4e0;"></div>Safe &ndash; can't be targeted until your next turn</div>
+        <div class="legend-row"><div class="legend-swatch" style="background:#2a0f3a;border:1px solid #b04fff;"></div>Wormhole &ndash; miss next Q, fall 8 extra</div>
+        <div class="legend-row"><div class="legend-swatch" style="background:#3a0f24;border:1px solid #ff4d6d;"></div>Twist &ndash; force next Q on a rival</div>
+        <div class="legend-row"><div class="legend-swatch" style="background:#123a12;border:1px solid #5bffa1;"></div>Bonus &ndash; go again</div>
+        <div class="legend-row"><div class="legend-swatch" style="background:#3a3a0f;border:1px solid #ffce00;"></div>Swap &ndash; trade places</div>
+      </div>
+      <div class="log-panel">
+        <h3>LIVE FEED</h3>
+        <div id="log-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL ============ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, doc, onSnapshot, runTransaction, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ============================================================
+   FIREBASE  (same project as the arcade's Notes wall — new
+   top-level collection "triviaRooms". If writes fail with a
+   permission error, the Firestore rules need to allow that
+   collection too.)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDRFuxwzwDIxo7Eunffk6XexHPDd8UYmHE",
+  authDomain: "notes-on-the-wall.firebaseapp.com",
+  projectId: "notes-on-the-wall",
+  storageBucket: "notes-on-the-wall.firebasestorage.app",
+  messagingSenderId: "220270159224",
+  appId: "1:220270159224:web:14d8143aee53f52cd1d48d"
+};
+const ROOM_ID = 'main';
+
+const statusBanner = document.getElementById('status-banner');
+function showStatus(text, level){
+  statusBanner.textContent = text;
+  statusBanner.className = 'status-banner show ' + (level || 'info');
+}
+function clearStatus(){
+  statusBanner.className = 'status-banner';
+}
+
+let db = null;
+let roomRef = null;
+
+/* ============================================================
+   AVATARS  (retro top-down pixel tokens, 6 distinct characters)
+   ============================================================ */
+const AVATARS = [
+  { id:'robot',  color:'#ff4d6d', label:'Robot',
+    svg:`<svg viewBox="0 0 16 16"><rect x="4" y="3" width="8" height="8" fill="#ff4d6d"/><rect x="6" y="0" width="4" height="3" fill="#ff4d6d"/><rect x="5" y="5" width="2" height="2" fill="#fff"/><rect x="9" y="5" width="2" height="2" fill="#fff"/><rect x="2" y="11" width="12" height="3" fill="#7a1a2c"/><rect x="1" y="6" width="2" height="4" fill="#ff4d6d"/><rect x="13" y="6" width="2" height="4" fill="#ff4d6d"/></svg>` },
+  { id:'ghost',  color:'#00e5c7', label:'Ghost',
+    svg:`<svg viewBox="0 0 16 16"><path d="M3 14 V6 a5 5 0 0 1 10 0 V14 l-2 -2 -2 2 -2 -2 -2 2 -2 -2 z" fill="#00e5c7"/><rect x="5" y="6" width="2" height="2" fill="#0b0b1e"/><rect x="9" y="6" width="2" height="2" fill="#0b0b1e"/></svg>` },
+  { id:'knight', color:'#ffce00', label:'Knight',
+    svg:`<svg viewBox="0 0 16 16"><rect x="4" y="2" width="8" height="6" fill="#ffce00"/><rect x="3" y="8" width="10" height="6" fill="#8a6d00"/><rect x="6" y="4" width="1.5" height="2" fill="#0b0b1e"/><rect x="8.5" y="4" width="1.5" height="2" fill="#0b0b1e"/><rect x="7" y="0" width="2" height="2" fill="#ffce00"/></svg>` },
+  { id:'wizard', color:'#b04fff', label:'Wizard',
+    svg:`<svg viewBox="0 0 16 16"><path d="M8 1 L13 9 H3 Z" fill="#b04fff"/><rect x="4" y="9" width="8" height="6" fill="#6a2fa0"/><circle cx="8" cy="1.5" r="1.3" fill="#ffce00"/></svg>` },
+  { id:'dragon', color:'#5bffa1', label:'Dragon',
+    svg:`<svg viewBox="0 0 16 16"><ellipse cx="8" cy="9" rx="6" ry="5" fill="#5bffa1"/><path d="M3 6 L1 3 L4 4 Z" fill="#5bffa1"/><path d="M13 6 L15 3 L12 4 Z" fill="#5bffa1"/><rect x="5.5" y="7" width="1.5" height="2" fill="#0b0b1e"/><rect x="9" y="7" width="1.5" height="2" fill="#0b0b1e"/><path d="M6 12 L10 12 L8 15 Z" fill="#1f8a5c"/></svg>` },
+  { id:'alien',  color:'#2fb4e0', label:'Alien',
+    svg:`<svg viewBox="0 0 16 16"><ellipse cx="8" cy="7" rx="5" ry="6" fill="#2fb4e0"/><ellipse cx="6" cy="6" rx="1.6" ry="2.2" fill="#0b0b1e"/><ellipse cx="10" cy="6" rx="1.6" ry="2.2" fill="#0b0b1e"/><rect x="5" y="13" width="1.5" height="3" fill="#2fb4e0"/><rect x="9.5" y="13" width="1.5" height="3" fill="#2fb4e0"/></svg>` }
+];
+function avatarSvg(id){ const a = AVATARS.find(a=>a.id===id); return a ? a.svg : ''; }
+function avatarColor(id){ const a = AVATARS.find(a=>a.id===id); return a ? a.color : '#888'; }
+
+/* ============================================================
+   QUESTION BANK
+   ============================================================ */
+const DIFFICULTY = {
+  easy:   { label:'EASY',   min:1, max:2,  cls:'easy'   },
+  medium: { label:'MEDIUM', min:2, max:6,  cls:'medium' },
+  genius: { label:'GENIUS', min:6, max:10, cls:'genius' }
+};
+
+const CATEGORIES = {
+  music2000s: { label:"2000's Music Lyrics", emoji:'🎵',
+    questions:{
+      easy:[
+        {q:"Which artist sang \"...oops, I did it again\"?", c:["Britney Spears","Christina Aguilera","Jessica Simpson","Mandy Moore"], a:0},
+        {q:"Complete: \"Hey ___, Don't Cha wish your girlfriend was hot like me?\" — this Pussycat Dolls hit is called what?", c:["Don't Cha","Buttons","Stickwitu","When I Grow Up"], a:0},
+        {q:"\"I'm Mr. Worldwide\" is a catchphrase associated with which artist?", c:["Pitbull","Flo Rida","Lil Jon","Sean Paul"], a:0},
+        {q:"Which boy band sang \"Bye Bye Bye\" in 2000?", c:["*NSYNC","Backstreet Boys","98 Degrees","O-Town"], a:0}
+      ],
+      medium:[
+        {q:"\"Hey there Delilah, what's it like in New York City?\" is a lyric from a song by which band?", c:["Plain White T's","Fall Out Boy","The All-American Rejects","Boys Like Girls"], a:0},
+        {q:"Which 2000s song opens with the line \"It's been a long day without you my friend\"?", c:["See You Again (Wiz Khalifa)","Apologize (OneRepublic)","The Reason (Hoobastank)","Drops of Jupiter (Train)"], a:0},
+        {q:"\"I'm at a payphone, trying to call home\" opens which song?", c:["Payphone (Maroon 5)","Grenade (Bruno Mars)","Home (Daughtry)","Stereo Hearts (Gym Class Heroes)"], a:0},
+        {q:"Which artist released the 2000s hit \"Since U Been Gone\"?", c:["Kelly Clarkson","Avril Lavigne","Pink","Ashlee Simpson"], a:0}
+      ],
+      genius:[
+        {q:"\"So la la la la, live your life\" is a hook featured on a T.I. track alongside which artist?", c:["Rihanna","Beyoncé","Alicia Keys","Ciara"], a:0},
+        {q:"The 2000s song \"Float On\" that name-drops surviving hardships belongs to which band?", c:["Modest Mouse","The Shins","Death Cab for Cutie","Weezer"], a:0},
+        {q:"Which 2004 song by Usher, featuring Lil Jon and Ludacris, was co-produced with a title referencing an argument?", c:["Yeah!","Confessions","Burn","U Got It Bad"], a:0},
+        {q:"\"Overprotected\" and \"I'm Not a Girl, Not Yet a Woman\" both come from the same 2001 Britney Spears album — name it.", c:["Britney","Oops!... I Did It Again","In the Zone","Blackout"], a:0}
+      ]
+    }
+  },
+  sports: { label:'Sports Highlights', emoji:'🏆',
+    questions:{
+      easy:[
+        {q:"How many players are on the field for one soccer team during a match (including goalkeeper)?", c:["11","10","9","12"], a:0},
+        {q:"Which sport uses a shuttlecock?", c:["Badminton","Tennis","Squash","Table Tennis"], a:0},
+        {q:"How many points is a touchdown worth in American football (before extra point)?", c:["6","7","3","8"], a:0},
+        {q:"Which country won the FIFA World Cup in 2018?", c:["France","Germany","Brazil","Croatia"], a:0}
+      ],
+      medium:[
+        {q:"Who holds the NBA record for most career points as of the 2023-24 season?", c:["LeBron James","Kareem Abdul-Jabbar","Kobe Bryant","Michael Jordan"], a:0},
+        {q:"Which country has won the most Olympic gold medals all-time (through 2024)?", c:["United States","Soviet Union/Russia","China","Great Britain"], a:0},
+        {q:"In tennis, what is the term for a score of 40-40?", c:["Deuce","Advantage","Love","Match Point"], a:0},
+        {q:"Which NFL quarterback has won the most Super Bowl titles?", c:["Tom Brady","Patrick Mahomes","Joe Montana","Peyton Manning"], a:0}
+      ],
+      genius:[
+        {q:"Who ran the fastest 100m dash time in history (as of 2024), and what was the time?", c:["Usain Bolt, 9.58s","Tyson Gay, 9.69s","Yohan Blake, 9.69s","Justin Gatlin, 9.74s"], a:0},
+        {q:"The 'Miracle on Ice' upset at the 1980 Olympics saw the U.S. hockey team defeat which country?", c:["Soviet Union","Canada","Finland","Sweden"], a:0},
+        {q:"Which boxer was famously involved in the 'Rumble in the Jungle' in 1974, held in Zaire?", c:["Muhammad Ali","Joe Frazier","George Foreman","Mike Tyson"], a:0},
+        {q:"Who was the last MLB player to hit .400 or better over a full season, in 1941?", c:["Ted Williams","Joe DiMaggio","Stan Musial","Rogers Hornsby"], a:0}
+      ]
+    }
+  },
+  politics: { label:'Modern American Politics', emoji:'🗳️',
+    questions:{
+      easy:[
+        {q:"How many U.S. Senators represent each state?", c:["2","1","4","3"], a:0},
+        {q:"What is the maximum number of years a U.S. President can serve, per the 22nd Amendment?", c:["10","8","12","4"], a:0},
+        {q:"Which branch of government is the Supreme Court part of?", c:["Judicial","Legislative","Executive","Local"], a:0},
+        {q:"How often are U.S. Presidential elections held?", c:["Every 4 years","Every 2 years","Every 6 years","Every 5 years"], a:0}
+      ],
+      medium:[
+        {q:"How many electoral votes are needed to win the U.S. presidency?", c:["270","300","218","51"], a:0},
+        {q:"Who was the U.S. Speaker of the House immediately before Mike Johnson?", c:["Kevin McCarthy","Nancy Pelosi","Paul Ryan","John Boehner"], a:0},
+        {q:"Which amendment to the Constitution guarantees freedom of speech, religion, and the press?", c:["First Amendment","Second Amendment","Fourth Amendment","Fourteenth Amendment"], a:0},
+        {q:"How many total voting members serve in the U.S. House of Representatives?", c:["435","500","100","438"], a:0}
+      ],
+      genius:[
+        {q:"Which U.S. Supreme Court case in 2022 overturned Roe v. Wade?", c:["Dobbs v. Jackson Women's Health Organization","Planned Parenthood v. Casey","Whole Woman's Health v. Hellerstedt","Gonzales v. Carhart"], a:0},
+        {q:"What is the minimum age required to serve as a U.S. Senator?", c:["30","25","35","21"], a:0},
+        {q:"Which act, passed in 2022, was a major federal law addressing climate spending, healthcare, and tax reform?", c:["Inflation Reduction Act","CHIPS and Science Act","American Rescue Plan Act","Build Back Better Act"], a:0},
+        {q:"How many times has the U.S. Constitution been amended in total (as of 2024)?", c:["27","25","30","22"], a:0}
+      ]
+    }
+  },
+  geography: { label:'Geography', emoji:'🌍',
+    questions:{
+      easy:[
+        {q:"What is the largest country in the world by land area?", c:["Russia","Canada","China","USA"], a:0},
+        {q:"Which continent is Egypt located on?", c:["Africa","Asia","Europe","South America"], a:0},
+        {q:"What is the capital of France?", c:["Paris","Lyon","Marseille","Nice"], a:0},
+        {q:"Which ocean is the largest on Earth?", c:["Pacific","Atlantic","Indian","Arctic"], a:0}
+      ],
+      medium:[
+        {q:"Which river is the longest in the world?", c:["Nile","Amazon","Yangtze","Mississippi"], a:0},
+        {q:"Mount Kilimanjaro is located in which country?", c:["Tanzania","Kenya","Uganda","Ethiopia"], a:0},
+        {q:"Which U.S. state has the largest land area?", c:["Alaska","Texas","California","Montana"], a:0},
+        {q:"What is the smallest country in the world by area?", c:["Vatican City","Monaco","San Marino","Liechtenstein"], a:0}
+      ],
+      genius:[
+        {q:"Which strait separates Asia from North America?", c:["Bering Strait","Strait of Gibraltar","Strait of Malacca","Cook Strait"], a:0},
+        {q:"What is the driest desert on Earth (excluding polar deserts)?", c:["Atacama Desert","Sahara Desert","Gobi Desert","Sonoran Desert"], a:0},
+        {q:"Which landlocked country is entirely surrounded by South Africa?", c:["Lesotho","Eswatini","Botswana","Malawi"], a:0},
+        {q:"Which two countries share the world's longest international land border?", c:["USA and Canada","Russia and Kazakhstan","China and Russia","Argentina and Chile"], a:0}
+      ]
+    }
+  },
+  astrology: { label:'Astrology', emoji:'♈',
+    questions:{
+      easy:[
+        {q:"Which zodiac sign is represented by the Ram?", c:["Aries","Taurus","Leo","Capricorn"], a:0},
+        {q:"How many signs are in the Western zodiac?", c:["12","10","13","8"], a:0},
+        {q:"Which zodiac sign spans roughly July 23 to August 22?", c:["Leo","Cancer","Virgo","Gemini"], a:0},
+        {q:"Which planet is traditionally associated with Scorpio's ruling energy (modern astrology)?", c:["Pluto","Mars","Neptune","Saturn"], a:0}
+      ],
+      medium:[
+        {q:"Which element is Cancer, Scorpio, and Pisces associated with?", c:["Water","Fire","Earth","Air"], a:0},
+        {q:"Which zodiac sign is symbolized by the Scales?", c:["Libra","Virgo","Gemini","Aquarius"], a:0},
+        {q:"In astrology, what does your 'rising sign' (ascendant) refer to?", c:["The sign on the eastern horizon at your birth time","Your sun sign","Your moon sign at birth","The sign Mercury was in at birth"], a:0},
+        {q:"Which zodiac sign is considered the most 'twin-like,' represented by two figures?", c:["Gemini","Pisces","Libra","Sagittarius"], a:0}
+      ],
+      genius:[
+        {q:"Which zodiac sign is ruled by Mercury in both traditional and modern astrology (two signs share this — name the mutable earth one)?", c:["Virgo","Gemini","Taurus","Capricorn"], a:0},
+        {q:"What term describes a birth chart placement where the Sun and Moon are in the same sign?", c:["New Moon natal chart","Full Moon phase","Solar return","Grand trine"], a:0},
+        {q:"Which zodiac sign is traditionally exalted when Venus resides in it?", c:["Pisces","Libra","Taurus","Cancer"], a:0},
+        {q:"What is the astrological term for when a planet appears to move backward through the zodiac from Earth's perspective?", c:["Retrograde","Transit","Conjunction","Opposition"], a:0}
+      ]
+    }
+  },
+  religion: { label:'Religion', emoji:'🙏',
+    questions:{
+      easy:[
+        {q:"What is the holy book of Islam called?", c:["The Quran","The Torah","The Bible","The Vedas"], a:0},
+        {q:"Which religion celebrates Diwali, the festival of lights?", c:["Hinduism","Buddhism","Sikhism","Jainism"], a:0},
+        {q:"What is the name of the Jewish day of rest, observed weekly?", c:["Shabbat","Passover","Yom Kippur","Hanukkah"], a:0},
+        {q:"Which religious leader is associated with founding Buddhism?", c:["Siddhartha Gautama (the Buddha)","Confucius","Lao Tzu","Guru Nanak"], a:0}
+      ],
+      medium:[
+        {q:"Which of the Five Pillars of Islam refers to fasting during Ramadan?", c:["Sawm","Shahada","Zakat","Hajj"], a:0},
+        {q:"In Christianity, what is the term for the belief in one God existing as Father, Son, and Holy Spirit?", c:["The Trinity","The Covenant","The Eucharist","The Ascension"], a:0},
+        {q:"Which sacred text is central to Sikhism?", c:["Guru Granth Sahib","Bhagavad Gita","Tao Te Ching","Analects"], a:0},
+        {q:"What is the name for the Buddhist concept of the cycle of death and rebirth?", c:["Samsara","Nirvana","Dharma","Karma"], a:0}
+      ],
+      genius:[
+        {q:"Which council in 325 CE established the Nicene Creed as a foundational Christian doctrine?", c:["First Council of Nicaea","Council of Trent","Council of Chalcedon","Second Vatican Council"], a:0},
+        {q:"What is the term for the Islamic pilgrimage to Mecca that able Muslims must undertake at least once?", c:["Hajj","Umrah","Sawm","Zakat"], a:0},
+        {q:"In Hinduism, which text is structured as a dialogue between Prince Arjuna and the god Krishna?", c:["Bhagavad Gita","Ramayana","Upanishads","Rigveda"], a:0},
+        {q:"Which ancient Jewish text, compiled centuries after the Torah, contains rabbinic discussions on law and ethics?", c:["The Talmud","The Septuagint","The Mishnah alone","The Apocrypha"], a:0}
+      ]
+    }
+  }
+};
+
+/* ============================================================
+   BOARD DEFINITION
+   ============================================================ */
+const BOARD_COLS = 7, BOARD_ROWS = 6;
+const PATH = [];
+for(let r=0;r<BOARD_ROWS;r++){
+  if(r % 2 === 0){
+    for(let c=0;c<BOARD_COLS;c++) PATH.push({row:r,col:c});
+  } else {
+    for(let c=BOARD_COLS-1;c>=0;c--) PATH.push({row:r,col:c});
+  }
+}
+const FINISH_INDEX = PATH.length - 1;
+
+const SPACE_TYPES = {};
+const TYPE_CYCLE = ['safe','wormhole','twist','bonus','swap'];
+let cyc = 0;
+for(let i=1;i<FINISH_INDEX;i++){
+  if(i % 3 === 0){
+    SPACE_TYPES[i] = TYPE_CYCLE[cyc % TYPE_CYCLE.length];
+    cyc++;
+  }
+}
+const EXTRA_SAFE_SPOTS = [1, 8, 17, 26, 35];
+EXTRA_SAFE_SPOTS.forEach(i=>{ if(!SPACE_TYPES[i]) SPACE_TYPES[i] = 'safe'; });
+SPACE_TYPES[0] = 'start';
+SPACE_TYPES[FINISH_INDEX] = 'finish';
+
+const TYPE_ICON = { safe:'🛡️', wormhole:'🌀', twist:'🎭', bonus:'⭐', swap:'🔀', start:'🚀', finish:'🏁' };
+const FORCE_CARD_CHANCE = 0.28;
+
+function wrongRange(d){
+  return { min: Math.max(1, Math.round(d.min/2)), max: Math.max(1, Math.round(d.max/2)) };
+}
+
+/* ============================================================
+   LOCAL IDENTITY
+   ============================================================ */
+function uuid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'p-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+let myId = localStorage.getItem('tq_playerId');
+if(!myId){ myId = uuid(); localStorage.setItem('tq_playerId', myId); }
+let myName = localStorage.getItem('tq_name') || '';
+let myAvatar = localStorage.getItem('tq_avatar') || null;
+
+/* ============================================================
+   ROOM HELPERS
+   ============================================================ */
+function initialRoomData(){
+  return { phase:'lobby', topics:[], players:[], queue:[], currentPlayerId:null, turn:null, usedQ:{}, log:[], winnerId:null };
+}
+function pushLog(data, text){
+  data.log = data.log || [];
+  data.log.push({ text, ts: Date.now() });
+  if(data.log.length > 30) data.log = data.log.slice(-30);
+}
+function advanceCurrentPlayer(data){
+  const idx = data.players.findIndex(p=>p.id===data.currentPlayerId);
+  const nextIdx = (idx + 1) % data.players.length;
+  data.currentPlayerId = data.players[nextIdx].id;
+}
+
+async function updateRoom(mutator){
+  if(!roomRef) return;
+  try{
+    await runTransaction(db, async (tx)=>{
+      const snap = await tx.get(roomRef);
+      const data = snap.exists() ? snap.data() : initialRoomData();
+      data.topics = data.topics || [];
+      data.players = data.players || [];
+      data.queue = data.queue || [];
+      data.usedQ = data.usedQ || {};
+      data.log = data.log || [];
+      const result = mutator(data);
+      if(result === false) return;
+      tx.set(roomRef, data);
+    });
+    clearStatus();
+  } catch(err){
+    console.error(err);
+    showStatus('Could not sync with the shared game: ' + err.message + '. If this persists, the Firestore rules likely need to allow the "triviaRooms" collection.', 'error');
+  }
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+async function joinRoom(name, avatar){
+  myName = name; myAvatar = avatar;
+  localStorage.setItem('tq_name', name);
+  localStorage.setItem('tq_avatar', avatar);
+  await updateRoom(data=>{
+    const inPlayers = data.players.find(p=>p.id===myId);
+    const inQueue = data.queue.find(p=>p.id===myId);
+    if(inPlayers){ inPlayers.name = name; inPlayers.avatar = avatar; return; }
+    if(inQueue){ inQueue.name = name; inQueue.avatar = avatar; return; }
+    if(data.phase==='lobby' && data.players.length < 6){
+      data.players.push({ id:myId, name, avatar, pos:0, safe:false, wormhole:false, twist:false });
+      pushLog(data, `${name} joined the game.`);
+    } else {
+      data.queue.push({ id:myId, name, avatar, queuedAt: Date.now() });
+      pushLog(data, `${name} joined the queue.`);
+    }
+  });
+}
+
+async function leaveRoom(){
+  await updateRoom(data=>{
+    if(data.phase!=='lobby') return false;
+    const pi = data.players.findIndex(p=>p.id===myId);
+    if(pi>=0){
+      const [left] = data.players.splice(pi,1);
+      pushLog(data, `${left.name} left.`);
+      if(data.queue.length){
+        const promoted = data.queue.shift();
+        data.players.push({ id:promoted.id, name:promoted.name, avatar:promoted.avatar, pos:0, safe:false, wormhole:false, twist:false });
+        pushLog(data, `${promoted.name} was promoted from the queue.`);
+      }
+      return;
+    }
+    const qi = data.queue.findIndex(p=>p.id===myId);
+    if(qi>=0){
+      const [left] = data.queue.splice(qi,1);
+      pushLog(data, `${left.name} left the queue.`);
+    }
+  });
+}
+
+async function toggleTopic(key){
+  await updateRoom(data=>{
+    if(data.phase!=='lobby') return false;
+    const i = data.topics.indexOf(key);
+    if(i>=0) data.topics.splice(i,1); else data.topics.push(key);
+  });
+}
+
+async function startGame(){
+  await updateRoom(data=>{
+    if(data.phase!=='lobby') return false;
+    if(data.players.length < 2) return false;
+    if(data.topics.length < 1) return false;
+    data.players.forEach(p=>{ p.pos=0; p.safe=false; p.wormhole=false; p.twist=false; });
+    data.phase = 'active';
+    data.currentPlayerId = data.players[0].id;
+    data.turn = null;
+    data.winnerId = null;
+    pushLog(data, `Game started with ${data.players.map(p=>p.name).join(', ')}.`);
+  });
+}
+
+async function beginTurn(){
+  await updateRoom(data=>{
+    if(data.phase!=='active' || data.turn) return false;
+    if(data.currentPlayerId!==myId) return false;
+    const player = data.players.find(p=>p.id===myId);
+    if(!player) return false;
+    if(player.safe) player.safe = false;
+    if(player.twist){
+      player.twist = false;
+      data.turn = { step:'twistOffer', actingPlayerId: player.id, data:{} };
+    } else {
+      data.turn = { step:'difficultyPick', actingPlayerId: player.id, data:{ forced:false } };
+    }
+  });
+}
+
+async function respondTwistOffer(force){
+  await updateRoom(data=>{
+    const t = data.turn;
+    if(!t || t.step!=='twistOffer' || t.actingPlayerId!==myId) return false;
+    if(!force){
+      data.turn = { step:'difficultyPick', actingPlayerId: myId, data:{ forced:false } };
+      return;
+    }
+    const targets = data.players.filter(p=>p.id!==myId && !p.safe);
+    if(targets.length===0){
+      data.turn = { step:'difficultyPick', actingPlayerId: myId, data:{ forced:false } };
+      pushLog(data, 'No valid Twist targets (everyone else is Safe) — answering solo.');
+      return;
+    }
+    data.turn = { step:'targetPick', actingPlayerId: myId, data:{ purpose:'twist', targetIds: targets.map(p=>p.id) } };
+  });
+}
+
+async function pickTarget(targetId){
+  await updateRoom(data=>{
+    const t = data.turn;
+    if(!t || t.step!=='targetPick' || t.actingPlayerId!==myId) return false;
+    if(t.data.purpose==='twist'){
+      data.turn = { step:'difficultyPick', actingPlayerId: targetId, data:{ forced:true, forcedBy: myId } };
+    } else if(t.data.purpose==='forceCard'){
+      const ctx = t.data.ctx;
+      const doubled = { correct: ctx.reward.correct*2, wrong: ctx.reward.wrong*2 };
+      data.turn = { step:'question', actingPlayerId: targetId, data:{ ...ctx, reward: doubled, forced:true, forcedBy: myId } };
+    }
+  });
+}
+
+async function pickDifficulty(diff){
+  await updateRoom(data=>{
+    const t = data.turn;
+    if(!t || t.step!=='difficultyPick' || t.actingPlayerId!==myId) return false;
+    if(!data.topics.length) return false;
+    const catKey = data.topics[Math.floor(Math.random()*data.topics.length)];
+    const cat = CATEGORIES[catKey];
+    const key = `${catKey}_${diff}`;
+    let used = data.usedQ[key] || [];
+    const pool = cat.questions[diff];
+    let available = pool.map((_,i)=>i).filter(i=>!used.includes(i));
+    if(available.length===0){ used=[]; available = pool.map((_,i)=>i); }
+    const idx = available[Math.floor(Math.random()*available.length)];
+    used.push(idx);
+    data.usedQ[key] = used;
+    const q = pool[idx];
+
+    let reward, isForceCard;
+    if(t.data.forced){
+      reward = { correct:10, wrong:-3 };
+      isForceCard = false;
+    } else {
+      const d = DIFFICULTY[diff];
+      const magnitude = d.min + Math.floor(Math.random()*(d.max-d.min+1));
+      const wr = Math.max(1, Math.round(magnitude/2));
+      reward = { correct:magnitude, wrong:-wr };
+      isForceCard = Math.random() < FORCE_CARD_CHANCE;
+    }
+    const ctx = { catKey, q, diff, reward };
+    if(isForceCard){
+      data.turn = { step:'forceCardIntro', actingPlayerId: myId, data: ctx };
+    } else {
+      data.turn = { step:'question', actingPlayerId: myId, data:{ ...ctx, forced: t.data.forced, forcedBy: t.data.forcedBy || null } };
+    }
+  });
+}
+
+async function respondForceCard(force){
+  await updateRoom(data=>{
+    const t = data.turn;
+    if(!t || t.step!=='forceCardIntro' || t.actingPlayerId!==myId) return false;
+    if(!force){
+      data.turn = { step:'question', actingPlayerId: myId, data:{ ...t.data, forced:false, forcedBy:null } };
+      return;
+    }
+    const targets = data.players.filter(p=>p.id!==myId && !p.safe);
+    if(targets.length===0){
+      data.turn = { step:'question', actingPlayerId: myId, data:{ ...t.data, forced:false, forcedBy:null } };
+      pushLog(data, 'No valid targets (everyone else is Safe) — answering solo.');
+      return;
+    }
+    data.turn = { step:'targetPick', actingPlayerId: myId, data:{ purpose:'forceCard', ctx: t.data, targetIds: targets.map(p=>p.id) } };
+  });
+}
+
+async function submitAnswer(chosenIndex){
+  await updateRoom(data=>{
+    const t = data.turn;
+    if(!t || t.step!=='question' || t.actingPlayerId!==myId) return false;
+    const q = t.data.q;
+    const correct = chosenIndex === q.a;
+    const reward = t.data.reward;
+    const player = data.players.find(p=>p.id===myId);
+    const amount = correct ? reward.correct : reward.wrong;
+    let wormholeExtra = 0;
+    if(player.wormhole){
+      if(!correct) wormholeExtra = -8;
+      player.wormhole = false;
+    }
+    data.turn = { step:'result', actingPlayerId: myId, data:{ chosenIndex, correct, amount, wormholeExtra, catKey:t.data.catKey, q, diff:t.data.diff, forced: t.data.forced || false } };
+  });
+}
+
+async function continueAfterResult(){
+  await updateRoom(data=>{
+    const t = data.turn;
+    if(!t || t.step!=='result' || t.actingPlayerId!==myId) return false;
+    const player = data.players.find(p=>p.id===myId);
+    const total = t.data.amount + t.data.wormholeExtra;
+    let newPos = player.pos + total;
+    newPos = Math.max(0, Math.min(FINISH_INDEX, newPos));
+    player.pos = newPos;
+    pushLog(data, `${player.name} ${total>=0?'advanced':'fell back'} ${Math.abs(total)} to space ${newPos}.`);
+
+    if(newPos >= FINISH_INDEX){
+      data.phase = 'finished';
+      data.winnerId = player.id;
+      data.turn = null;
+      pushLog(data, `🏆 ${player.name} wins!`);
+      return;
+    }
+
+    const type = SPACE_TYPES[newPos];
+    if(!type || type==='start' || type==='finish'){
+      data.turn = null;
+      advanceCurrentPlayer(data);
+      return;
+    }
+    switch(type){
+      case 'safe':
+        player.safe = true;
+        data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'safe', text:`${player.name} is Safe! Can't be targeted until their own next turn.` } };
+        break;
+      case 'wormhole':
+        player.wormhole = true;
+        data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'worm', text:`${player.name} is at a Wormhole. If their next question is wrong, they'll fall an extra 8 spaces.` } };
+        break;
+      case 'twist':
+        player.twist = true;
+        data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'twist', text:`${player.name} landed on a Twist space! Next turn they can force a question onto a rival.` } };
+        break;
+      case 'bonus':
+        data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'bonus', text:`${player.name} landed on a Bonus space and goes again!`, goAgain:true } };
+        break;
+      case 'swap': {
+        const others = data.players.filter(p=>p.id!==myId);
+        if(others.length){
+          const target = others[Math.floor(Math.random()*others.length)];
+          const tmp = player.pos; player.pos = target.pos; target.pos = tmp;
+          data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'swap', text:`SWAP! ${player.name} traded places with ${target.name}.` } };
+        } else {
+          data.turn = null;
+          advanceCurrentPlayer(data);
+        }
+        break;
+      }
+      default:
+        data.turn = null;
+        advanceCurrentPlayer(data);
+    }
+  });
+}
+
+async function acknowledgeLanding(){
+  await updateRoom(data=>{
+    const t = data.turn;
+    if(!t || t.step!=='landingEvent' || t.actingPlayerId!==myId) return false;
+    if(t.data.goAgain){
+      data.turn = { step:'difficultyPick', actingPlayerId: myId, data:{ forced:false } };
+    } else {
+      data.turn = null;
+      advanceCurrentPlayer(data);
+    }
+  });
+}
+
+async function startNextRound(){
+  await updateRoom(data=>{
+    if(data.phase!=='finished') return false;
+    const n = data.players.length;
+    const cut = Math.floor(n/2);
+    const sorted = [...data.players].sort((a,b)=>b.pos-a.pos);
+    const kept = sorted.slice(0, n-cut);
+    const removed = sorted.slice(n-cut);
+    kept.forEach(p=>{ p.pos=0; p.safe=false; p.wormhole=false; p.twist=false; });
+    removed.forEach(p=>{ data.queue.push({ id:p.id, name:p.name, avatar:p.avatar, queuedAt: Date.now() }); });
+    let newPlayers = kept;
+    while(newPlayers.length < 6 && data.queue.length){
+      const promoted = data.queue.shift();
+      newPlayers.push({ id:promoted.id, name:promoted.name, avatar:promoted.avatar, pos:0, safe:false, wormhole:false, twist:false });
+    }
+    data.players = newPlayers;
+    data.phase = 'lobby';
+    data.currentPlayerId = null;
+    data.turn = null;
+    data.winnerId = null;
+    pushLog(data, `New round! ${removed.length ? removed.map(p=>p.name).join(', ') + ' moved to the queue.' : 'Everyone stays.'}`);
+  });
+}
+
+/* ============================================================
+   RENDERING
+   ============================================================ */
+const screenLobby = document.getElementById('screen-lobby');
+const screenGame = document.getElementById('screen-game');
+let latestRoom = null;
+
+function showScreen(name){
+  screenLobby.classList.toggle('active', name==='lobby');
+  screenGame.classList.toggle('active', name==='game');
+}
+
+function render(data){
+  latestRoom = data;
+  if(!data){ return; }
+  if(data.phase==='active' || data.phase==='finished'){
+    showScreen('game');
+    renderBoard();
+    placeTokens(data);
+    renderStandings(data);
+    renderTurnCard(data);
+    renderLog(data);
+    renderTurnModal(data);
+    if(data.phase==='finished') renderWinnerModal(data);
+  } else {
+    showScreen('lobby');
+    renderLobby(data);
+    closeModal();
+  }
+}
+
+/* ---- Lobby ---- */
+const joinForm = document.getElementById('join-form');
+const youCard = document.getElementById('you-card');
+const joinNameInput = document.getElementById('join-name-input');
+const joinAvatarRow = document.getElementById('join-avatar-row');
+let pendingAvatar = myAvatar;
+
+function renderJoinAvatars(activePlayers){
+  const takenByOthers = activePlayers.filter(p=>p.id!==myId).map(p=>p.avatar);
+  joinAvatarRow.innerHTML = AVATARS.map(av=>{
+    const taken = takenByOthers.includes(av.id);
+    const sel = pendingAvatar === av.id;
+    return `<div class="avatar-choice ${taken?'taken':''} ${sel?'selected':''}" data-avatar="${av.id}" title="${av.label}">${av.svg}</div>`;
+  }).join('');
+  joinAvatarRow.querySelectorAll('.avatar-choice:not(.taken)').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      pendingAvatar = el.dataset.avatar;
+      renderJoinAvatars(activePlayers);
+    });
+  });
+}
+
+function renderLobby(data){
+  const inPlayers = data.players.find(p=>p.id===myId);
+  const inQueue = data.queue.find(p=>p.id===myId);
+  const joined = !!(inPlayers || inQueue);
+
+  joinForm.style.display = joined ? 'none' : 'flex';
+  youCard.style.display = joined ? 'flex' : 'none';
+
+  if(!joined){
+    if(myName) joinNameInput.value = myName;
+    renderJoinAvatars(data.players);
+  } else {
+    const me = inPlayers || inQueue;
+    document.getElementById('you-avatar-icon').innerHTML = avatarSvg(me.avatar);
+    document.getElementById('you-name').textContent = me.name;
+    const leaveBtn = document.getElementById('leave-btn');
+    if(inPlayers){
+      document.getElementById('you-status').textContent = "You're in! Waiting in the lobby.";
+      leaveBtn.style.display = 'inline-block';
+    } else {
+      const pos = data.queue.findIndex(p=>p.id===myId) + 1;
+      document.getElementById('you-status').textContent = `You're #${pos} in the queue — you'll be seated automatically.`;
+      leaveBtn.style.display = 'inline-block';
+    }
+  }
+
+  // topics
+  const topicGrid = document.getElementById('topic-grid');
+  topicGrid.innerHTML = '';
+  Object.entries(CATEGORIES).forEach(([key, cat])=>{
+    const div = document.createElement('div');
+    const sel = data.topics.includes(key);
+    div.className = 'topic-card' + (sel ? ' selected':'');
+    div.innerHTML = `<span class="emoji">${cat.emoji}</span><span class="name">${cat.label}</span><span class="check">${sel?'✓':''}</span>`;
+    div.addEventListener('click', ()=> toggleTopic(key));
+    topicGrid.appendChild(div);
+  });
+
+  // active roster
+  document.getElementById('active-count').textContent = data.players.length;
+  const activeRoster = document.getElementById('active-roster');
+  activeRoster.innerHTML = data.players.length ? data.players.map(p=>`
+    <div class="roster-row ${p.id===myId?'me':''}">
+      <div class="avatar-icon">${avatarSvg(p.avatar)}</div>
+      <div class="nm">${escapeHtml(p.name)}</div>
+      ${p.id===myId ? '<span class="you-tag">YOU</span>' : ''}
+    </div>`).join('') : '<div class="empty-roster">No one has joined yet — be the first!</div>';
+
+  // queue
+  const queuePanel = document.getElementById('queue-panel');
+  queuePanel.style.display = data.queue.length ? 'block' : 'none';
+  document.getElementById('queue-roster').innerHTML = data.queue.map((p,i)=>`
+    <div class="roster-row ${p.id===myId?'me':''}">
+      <span class="queue-num">#${i+1}</span>
+      <div class="avatar-icon">${avatarSvg(p.avatar)}</div>
+      <div class="nm">${escapeHtml(p.name)}</div>
+      ${p.id===myId ? '<span class="you-tag">YOU</span>' : ''}
+    </div>`).join('');
+
+  // start button
+  const startBtn = document.getElementById('start-game-btn');
+  const canStart = joined && !!inPlayers && data.players.length>=2 && data.topics.length>=1;
+  startBtn.disabled = !canStart;
+  startBtn.style.display = inPlayers ? 'inline-block' : 'none';
+
+  const errEl = document.getElementById('setup-error');
+  if(inPlayers && data.players.length<2) errEl.textContent = 'Waiting for at least one more player to join.';
+  else if(inPlayers && data.topics.length<1) errEl.textContent = 'Pick at least one topic before starting.';
+  else errEl.textContent = '';
+}
+
+joinNameInput.addEventListener('input', ()=>{ myName = joinNameInput.value; });
+document.getElementById('join-btn').addEventListener('click', ()=>{
+  const name = joinNameInput.value.trim();
+  const errEl = document.getElementById('setup-error');
+  if(!name){ errEl.textContent = 'Enter a name to join.'; return; }
+  if(!pendingAvatar){ errEl.textContent = 'Pick a character to join.'; return; }
+  errEl.textContent = '';
+  joinRoom(name, pendingAvatar);
+});
+document.getElementById('leave-btn').addEventListener('click', leaveRoom);
+document.getElementById('start-game-btn').addEventListener('click', startGame);
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+/* ---- Board ---- */
+const boardGridEl = document.getElementById('board-grid');
+let boardBuilt = false;
+function renderBoard(){
+  if(boardBuilt) return;
+  boardBuilt = true;
+  boardGridEl.style.gridTemplateColumns = `repeat(${BOARD_COLS}, 1fr)`;
+  boardGridEl.style.gridTemplateRows = `repeat(${BOARD_ROWS}, 1fr)`;
+  boardGridEl.innerHTML = '';
+  const cellByRC = {};
+  PATH.forEach((rc, idx)=>{ cellByRC[`${rc.row}_${rc.col}`] = idx; });
+  for(let r=0;r<BOARD_ROWS;r++){
+    for(let c=0;c<BOARD_COLS;c++){
+      const idx = cellByRC[`${r}_${c}`];
+      const type = SPACE_TYPES[idx] || 'normal';
+      const div = document.createElement('div');
+      div.className = `cell ${type!=='normal' ? 'type-'+type : ''}`;
+      div.dataset.idx = idx;
+      div.innerHTML = `<span class="idx">${idx}</span>${TYPE_ICON[type] ? `<span class="type-icon">${TYPE_ICON[type]}</span>`:''}<div class="tokens-in-cell" data-tokens="${idx}"></div>`;
+      boardGridEl.appendChild(div);
+    }
+  }
+}
+function placeTokens(data){
+  document.querySelectorAll('[data-tokens]').forEach(el=>el.innerHTML='');
+  data.players.forEach(p=>{
+    const container = document.querySelector(`[data-tokens="${p.pos}"]`);
+    if(!container) return;
+    const tok = document.createElement('div');
+    tok.className = 'token';
+    tok.innerHTML = avatarSvg(p.avatar);
+    tok.title = p.name;
+    container.appendChild(tok);
+  });
+}
+
+/* ---- Side panel ---- */
+function renderStandings(data){
+  const el = document.getElementById('standings-list');
+  const ordered = [...data.players].sort((a,b)=>b.pos-a.pos);
+  el.innerHTML = ordered.map(p=>{
+    const flags = [
+      p.safe ? '<span class="badge-flag safe">SAFE</span>' : '',
+      p.wormhole ? '<span class="badge-flag worm">WORMHOLE</span>' : '',
+      p.twist ? '<span class="badge-flag twist">TWIST</span>' : ''
+    ].join('');
+    const isActive = data.currentPlayerId === p.id;
+    return `<div class="standing-row ${isActive?'active-turn':''} ${p.id===myId?'me':''}">
+      <div class="avatar-icon">${avatarSvg(p.avatar)}</div>
+      <div class="nm">${escapeHtml(p.name)}${p.id===myId?' (you)':''}${flags}</div>
+      <div class="pos">${p.pos}/${FINISH_INDEX}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTurnCard(data){
+  const badge = document.getElementById('current-player-badge');
+  const takeBtn = document.getElementById('take-turn-btn');
+  const waitNote = document.getElementById('waiting-note');
+  const player = data.players.find(p=>p.id===data.currentPlayerId);
+  if(!player){ badge.innerHTML=''; takeBtn.style.display='none'; waitNote.textContent=''; return; }
+  badge.innerHTML = `<div class="avatar-icon">${avatarSvg(player.avatar)}</div><div class="name">${escapeHtml(player.name)}${player.id===myId?' (you)':''}</div>`;
+  const myTurnIdle = data.phase==='active' && !data.turn && data.currentPlayerId===myId;
+  takeBtn.style.display = myTurnIdle ? 'inline-block' : 'none';
+  if(data.phase==='finished'){
+    waitNote.textContent = '';
+  } else if(data.turn){
+    waitNote.textContent = '';
+  } else if(data.currentPlayerId===myId){
+    waitNote.textContent = '';
+  } else {
+    waitNote.textContent = `Waiting for ${player.name}...`;
+  }
+}
+document.getElementById('take-turn-btn').addEventListener('click', beginTurn);
+
+function renderLog(data){
+  const el = document.getElementById('log-list');
+  const items = [...(data.log||[])].slice(-12).reverse();
+  el.innerHTML = items.map(l=>`<div class="log-row">${escapeHtml(l.text)}</div>`).join('') || '<div class="log-row">No events yet.</div>';
+}
+
+/* ---- Modal (driven by room.turn) ---- */
+const overlayEl = document.getElementById('modal-overlay');
+const modalEl = document.getElementById('modal-content');
+function openModal(){ overlayEl.classList.add('active'); }
+function closeModal(){ overlayEl.classList.remove('active'); }
+
+function rewardBadgeHtml(reward){
+  return `<div class="reward-badge"><span class="rw-correct">✅ +${reward.correct}</span><span class="rw-wrong">❌ ${reward.wrong}</span></div>`;
+}
+function spectatorTag(actingName){
+  return `<div class="spectator-tag">👀 Watching ${escapeHtml(actingName)}'s turn</div>`;
+}
+
+function renderTurnModal(data){
+  const t = data.turn;
+  if(!t){ closeModal(); return; }
+  const iAmActing = t.actingPlayerId === myId;
+  const actingPlayer = data.players.find(p=>p.id===t.actingPlayerId) || { name:'Someone' };
+
+  if(t.step==='twistOffer'){
+    modalEl.innerHTML = `
+      ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
+      <div class="event-banner twist">TWIST SPACE TRIGGERED</div>
+      <h3>Force this question onto a rival?</h3>
+      <p class="sub">${escapeHtml(actingPlayer.name)} landed on a Twist space last turn. Forcing pays fixed odds: +10 if the target is right, -3 if they're wrong. Safe players can't be targeted.</p>
+      <div class="btn-row">
+        <button class="btn secondary" id="twist-yes" ${iAmActing?'':'disabled'}>Force It</button>
+        <button class="btn" id="twist-no" ${iAmActing?'':'disabled'}>Answer It Myself</button>
+      </div>`;
+    openModal();
+    if(iAmActing){
+      document.getElementById('twist-yes').addEventListener('click', ()=>respondTwistOffer(true));
+      document.getElementById('twist-no').addEventListener('click', ()=>respondTwistOffer(false));
+    }
+    return;
+  }
+
+  if(t.step==='targetPick'){
+    const targets = data.players.filter(p=>t.data.targetIds.includes(p.id));
+    modalEl.innerHTML = `
+      ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
+      <h3>Choose a target</h3>
+      <p class="sub">${escapeHtml(actingPlayer.name)}, who has to answer this one?</p>
+      <div class="target-list">
+        ${targets.map(tp=>`<button class="target-btn" data-target="${tp.id}" ${iAmActing?'':'disabled'}><div class="avatar-icon">${avatarSvg(tp.avatar)}</div>${escapeHtml(tp.name)} (pos ${tp.pos})</button>`).join('')}
+      </div>`;
+    openModal();
+    if(iAmActing){
+      modalEl.querySelectorAll('[data-target]').forEach(btn=>{
+        btn.addEventListener('click', ()=>pickTarget(btn.dataset.target));
+      });
+    }
+    return;
+  }
+
+  if(t.step==='difficultyPick'){
+    const isForced = !!t.data.forced;
+    modalEl.innerHTML = `
+      ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
+      ${isForced ? `<div class="event-banner twist">FORCED QUESTION for ${escapeHtml(actingPlayer.name)}!</div>` : ''}
+      <h3>${isForced ? `${escapeHtml(actingPlayer.name)}, choose a difficulty` : 'Choose your difficulty'}</h3>
+      <p class="sub">${isForced ? 'Forced questions always pay +10 / -3 regardless of difficulty chosen.' : 'Higher difficulty = bigger risk and reward.'}</p>
+      <div class="diff-grid">
+        ${Object.entries(DIFFICULTY).map(([key,d])=>{
+          const wr = wrongRange(d);
+          const rng = isForced ? '+10 / -3' : `+${d.min}-${d.max} / -${wr.min}-${wr.max}`;
+          return `<div class="diff-btn ${d.cls}" data-diff="${key}" ${iAmActing?'':'style="pointer-events:none;opacity:.5;"'}>
+            <span class="lbl">${d.label}</span>
+            <span class="rng">${rng}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    openModal();
+    if(iAmActing){
+      modalEl.querySelectorAll('[data-diff]').forEach(btn=>{
+        btn.addEventListener('click', ()=>pickDifficulty(btn.dataset.diff));
+      });
+    }
+    return;
+  }
+
+  if(t.step==='forceCardIntro'){
+    const doubled = { correct: t.data.reward.correct*2, wrong: t.data.reward.wrong*2 };
+    modalEl.innerHTML = `
+      ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
+      <div class="cat-tag">${CATEGORIES[t.data.catKey].emoji} ${CATEGORIES[t.data.catKey].label} &middot; ${DIFFICULTY[t.data.diff].label}</div>
+      <div class="event-banner force">⚡ FORCE CARD!</div>
+      <p class="sub">This question can be sent to a rival. Answer it solo for normal odds, or force it onto someone else and double the stakes for whoever ends up answering.</p>
+      ${rewardBadgeHtml(t.data.reward)}
+      <p class="sub" style="margin-top:-6px;">Forced odds: <strong style="color:var(--accent2);">+${doubled.correct} / ${doubled.wrong}</strong></p>
+      <div class="btn-row">
+        <button class="btn secondary" id="force-yes" ${iAmActing?'':'disabled'}>Force onto Rival</button>
+        <button class="btn" id="force-no" ${iAmActing?'':'disabled'}>Answer It Myself</button>
+      </div>`;
+    openModal();
+    if(iAmActing){
+      document.getElementById('force-yes').addEventListener('click', ()=>respondForceCard(true));
+      document.getElementById('force-no').addEventListener('click', ()=>respondForceCard(false));
+    }
+    return;
+  }
+
+  if(t.step==='question'){
+    const { catKey, diff, q, reward, forced } = t.data;
+    const cat = CATEGORIES[catKey];
+    modalEl.innerHTML = `
+      ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
+      <div class="cat-tag">${cat.emoji} ${cat.label} &middot; ${forced ? 'FORCED' : DIFFICULTY[diff].label}</div>
+      <div class="sub">Answering: <strong style="color:var(--accent);">${escapeHtml(actingPlayer.name)}</strong>${forced ? ' (forced question)':''}</div>
+      ${rewardBadgeHtml(reward)}
+      <div class="question-text">${escapeHtml(q.q)}</div>
+      <div class="choices">
+        ${q.c.map((choice,i)=>`<button class="choice-btn" data-i="${i}" ${iAmActing?'':'disabled'}>${escapeHtml(choice)}</button>`).join('')}
+      </div>`;
+    openModal();
+    if(iAmActing){
+      const btns = [...modalEl.querySelectorAll('.choice-btn')];
+      btns.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          btns.forEach(b=>b.disabled = true);
+          const chosen = +btn.dataset.i;
+          btns[q.a].classList.add('correct');
+          if(chosen !== q.a) btn.classList.add('wrong');
+          setTimeout(()=> submitAnswer(chosen), 900);
+        });
+      });
+    }
+    return;
+  }
+
+  if(t.step==='result'){
+    const { correct, amount, wormholeExtra } = t.data;
+    const player = data.players.find(p=>p.id===t.actingPlayerId) || {name:'Player'};
+    modalEl.innerHTML = `
+      ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
+      <div class="result-box">
+        <div class="verdict ${correct?'win':'lose'}">${correct ? 'CORRECT!' : 'WRONG!'}</div>
+        <div class="move-amt">${escapeHtml(player.name)} ${amount>=0?'advances':'falls back'} ${Math.abs(amount)} space${Math.abs(amount)===1?'':'s'}</div>
+        ${wormholeExtra ? `<div class="event-banner worm">🌀 Wormhole triggers! An extra 8 spaces back!</div>` : ''}
+        <div class="btn-row"><button class="btn" id="continue-btn" ${iAmActing?'':'disabled'}>Continue</button></div>
+      </div>`;
+    openModal();
+    if(iAmActing){
+      document.getElementById('continue-btn').addEventListener('click', continueAfterResult);
+    }
+    return;
+  }
+
+  if(t.step==='landingEvent'){
+    modalEl.innerHTML = `
+      ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
+      <div class="event-banner ${t.data.type}">${escapeHtml(t.data.text)}</div>
+      <div class="btn-row"><button class="btn" id="event-continue" ${iAmActing?'':'disabled'}>OK</button></div>`;
+    openModal();
+    if(iAmActing){
+      document.getElementById('event-continue').addEventListener('click', acknowledgeLanding);
+    }
+    return;
+  }
+}
+
+function renderWinnerModal(data){
+  if(!data.winnerId) return;
+  const winner = data.players.find(p=>p.id===data.winnerId);
+  if(!winner) return;
+  modalEl.innerHTML = `
+    <div class="result-box">
+      <div class="avatar-icon" style="width:64px;height:64px;margin:0 auto 14px;">${avatarSvg(winner.avatar)}</div>
+      <div class="event-banner win">🏆 ${escapeHtml(winner.name.toUpperCase())} WINS! 🏆</div>
+      <p class="sub">The bottom half of this round's standings rotate to the back of the queue. Anyone can kick off the next round.</p>
+      <div class="btn-row"><button class="btn secondary" id="next-round-btn">Start Next Round</button></div>
+    </div>`;
+  openModal();
+  document.getElementById('next-round-btn').addEventListener('click', startNextRound);
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+try{
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  roomRef = doc(db, 'triviaRooms', ROOM_ID);
+  onSnapshot(roomRef, (snap)=>{
+    render(snap.exists() ? snap.data() : initialRoomData());
+  }, (err)=>{
+    console.error(err);
+    showStatus('Could not connect to the shared game: ' + err.message, 'error');
+  });
+} catch(err){
+  console.error(err);
+  showStatus('This page could not connect to shared storage, so live play is unavailable right now.', 'error');
+}
+</script>
+
+</body>
+</html>

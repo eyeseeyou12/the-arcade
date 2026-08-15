@@ -103,6 +103,7 @@
   <button class="tab-btn" data-target="piano"><span class="dot"></span>KEYBOARD HERO</button>
   <button class="tab-btn" data-target="typeordie"><span class="dot"></span>TYPE OR DIE</button>
   <button class="tab-btn" data-target="pegsolitaire"><span class="dot"></span>PEG SOLITAIRE</button>
+  <button class="tab-btn" data-target="trivia"><span class="dot"></span>TRIVIA QUEST</button>
 </div>
 
 <div id="stage">
@@ -118,6 +119,9 @@
   <div class="app-pane" data-pane="pegsolitaire">
     <div class="loading-msg">loading peg solitaire…</div>
   </div>
+  <div class="app-pane" data-pane="trivia">
+    <div class="loading-msg">loading trivia quest…</div>
+  </div>
 </div>
 
 <script>
@@ -128,7 +132,8 @@
     notes: "notes-on-the-wall.html",
     piano: "piano-hero.html",
     typeordie: "type-or-die.html",
-    pegsolitaire: "peg-solitaire.html"
+    pegsolitaire: "peg-solitaire.html",
+    trivia: "trivia-quest.html"
   };
 
   const tabs = document.querySelectorAll('.tab-btn');
