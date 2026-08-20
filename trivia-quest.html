@@ -241,6 +241,16 @@
     font-family:'Press Start 2P', monospace;
   }
   .empty-roster{color:var(--muted); font-size:16px; padding:6px 2px;}
+  .leave-mini{
+    background:none;
+    border:none;
+    color:var(--danger);
+    cursor:pointer;
+    font-family:'VT323', monospace;
+    font-size:16px;
+    padding:4px 6px;
+  }
+  .leave-mini:hover{opacity:.75;}
 
   .add-player-btn{
     width:100%;
@@ -637,21 +647,15 @@
 <div class="screen active" id="screen-lobby">
 
   <div class="panel" id="join-panel">
-    <h2>Join the Game</h2>
-    <div class="join-form" id="join-form">
-      <input class="player-name-input" id="join-name-input" placeholder="Enter your name" maxlength="16">
+    <h2>Your Players (this device)</h2>
+    <div class="hint">Playing locally with friends on one screen? Add each person as their own player &mdash; you'll all take turns from here.</div>
+    <div class="roster-list" id="my-seats-list" style="margin:14px 0 0;"></div>
+    <div class="join-form" id="join-form" style="margin-top:14px;">
+      <input class="player-name-input" id="join-name-input" placeholder="Enter a name" maxlength="16">
       <div class="avatar-row" id="join-avatar-row"></div>
       <div class="btn-row" style="justify-content:flex-start;">
-        <button class="btn" id="join-btn" type="button">Join</button>
+        <button class="btn" id="join-btn" type="button">Add Player</button>
       </div>
-    </div>
-    <div class="you-card" id="you-card" style="display:none;">
-      <div class="avatar-icon" id="you-avatar-icon"></div>
-      <div class="info">
-        <div class="nm" id="you-name"></div>
-        <div class="st" id="you-status"></div>
-      </div>
-      <button class="btn danger" id="leave-btn" type="button" style="font-size:11px; display:none;">Leave</button>
     </div>
   </div>
 
@@ -993,10 +997,23 @@ function uuid(){
   if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
   return 'p-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
-let myId = localStorage.getItem('tq_playerId');
-if(!myId){ myId = uuid(); localStorage.setItem('tq_playerId', myId); }
-let myName = localStorage.getItem('tq_name') || '';
-let myAvatar = localStorage.getItem('tq_avatar') || null;
+// This browser can control more than one seat at once (local pass-and-play:
+// several people on one computer, each joining as their own player).
+function loadSeats(){
+  try{
+    const raw = JSON.parse(localStorage.getItem('tq_seats') || '[]');
+    if(Array.isArray(raw)) return raw.filter(s=>s && s.id);
+  } catch(err){ /* fall through */ }
+  // migrate from the old single-identity format if present
+  const legacyId = localStorage.getItem('tq_playerId');
+  const legacyName = localStorage.getItem('tq_name');
+  const legacyAvatar = localStorage.getItem('tq_avatar');
+  if(legacyId && legacyName && legacyAvatar) return [{ id:legacyId, name:legacyName, avatar:legacyAvatar }];
+  return [];
+}
+let mySeats = loadSeats();
+function saveSeats(){ localStorage.setItem('tq_seats', JSON.stringify(mySeats)); }
+function isMine(id){ return mySeats.some(s=>s.id===id); }
 
 /* ============================================================
    ROOM HELPERS
@@ -1041,28 +1058,27 @@ async function updateRoom(mutator){
    ACTIONS
    ============================================================ */
 async function joinRoom(name, avatar){
-  myName = name; myAvatar = avatar;
-  localStorage.setItem('tq_name', name);
-  localStorage.setItem('tq_avatar', avatar);
+  const seatId = uuid();
+  mySeats.push({ id:seatId, name, avatar });
+  saveSeats();
+  localStorage.setItem('tq_name', name); // just to prefill the next add-player form
   await updateRoom(data=>{
-    const inPlayers = data.players.find(p=>p.id===myId);
-    const inQueue = data.queue.find(p=>p.id===myId);
-    if(inPlayers){ inPlayers.name = name; inPlayers.avatar = avatar; return; }
-    if(inQueue){ inQueue.name = name; inQueue.avatar = avatar; return; }
     if(data.phase==='lobby' && data.players.length < 6){
-      data.players.push({ id:myId, name, avatar, pos:0, safe:false, wormhole:false, twist:false });
+      data.players.push({ id:seatId, name, avatar, pos:0, safe:false, wormhole:false, twist:false });
       pushLog(data, `${name} joined the game.`);
     } else {
-      data.queue.push({ id:myId, name, avatar, queuedAt: Date.now() });
+      data.queue.push({ id:seatId, name, avatar, queuedAt: Date.now() });
       pushLog(data, `${name} joined the queue.`);
     }
   });
 }
 
-async function leaveRoom(){
+async function leaveRoom(seatId){
+  mySeats = mySeats.filter(s=>s.id!==seatId);
+  saveSeats();
   await updateRoom(data=>{
     if(data.phase!=='lobby') return false;
-    const pi = data.players.findIndex(p=>p.id===myId);
+    const pi = data.players.findIndex(p=>p.id===seatId);
     if(pi>=0){
       const [left] = data.players.splice(pi,1);
       pushLog(data, `${left.name} left.`);
@@ -1073,7 +1089,7 @@ async function leaveRoom(){
       }
       return;
     }
-    const qi = data.queue.findIndex(p=>p.id===myId);
+    const qi = data.queue.findIndex(p=>p.id===seatId);
     if(qi>=0){
       const [left] = data.queue.splice(qi,1);
       pushLog(data, `${left.name} left the queue.`);
@@ -1104,10 +1120,12 @@ async function startGame(){
 }
 
 async function beginTurn(){
+  const seatId = latestRoom && latestRoom.currentPlayerId;
+  if(!seatId) return;
   await updateRoom(data=>{
     if(data.phase!=='active' || data.turn) return false;
-    if(data.currentPlayerId!==myId) return false;
-    const player = data.players.find(p=>p.id===myId);
+    if(data.currentPlayerId!==seatId) return false;
+    const player = data.players.find(p=>p.id===seatId);
     if(!player) return false;
     if(player.safe) player.safe = false;
     if(player.twist){
@@ -1119,42 +1137,42 @@ async function beginTurn(){
   });
 }
 
-async function respondTwistOffer(force){
+async function respondTwistOffer(force, seatId){
   await updateRoom(data=>{
     const t = data.turn;
-    if(!t || t.step!=='twistOffer' || t.actingPlayerId!==myId) return false;
+    if(!t || t.step!=='twistOffer' || t.actingPlayerId!==seatId) return false;
     if(!force){
-      data.turn = { step:'difficultyPick', actingPlayerId: myId, data:{ forced:false } };
+      data.turn = { step:'difficultyPick', actingPlayerId: seatId, data:{ forced:false } };
       return;
     }
-    const targets = data.players.filter(p=>p.id!==myId && !p.safe);
+    const targets = data.players.filter(p=>p.id!==seatId && !p.safe);
     if(targets.length===0){
-      data.turn = { step:'difficultyPick', actingPlayerId: myId, data:{ forced:false } };
+      data.turn = { step:'difficultyPick', actingPlayerId: seatId, data:{ forced:false } };
       pushLog(data, 'No valid Twist targets (everyone else is Safe) — answering solo.');
       return;
     }
-    data.turn = { step:'targetPick', actingPlayerId: myId, data:{ purpose:'twist', targetIds: targets.map(p=>p.id) } };
+    data.turn = { step:'targetPick', actingPlayerId: seatId, data:{ purpose:'twist', targetIds: targets.map(p=>p.id) } };
   });
 }
 
-async function pickTarget(targetId){
+async function pickTarget(targetId, seatId){
   await updateRoom(data=>{
     const t = data.turn;
-    if(!t || t.step!=='targetPick' || t.actingPlayerId!==myId) return false;
+    if(!t || t.step!=='targetPick' || t.actingPlayerId!==seatId) return false;
     if(t.data.purpose==='twist'){
-      data.turn = { step:'difficultyPick', actingPlayerId: targetId, data:{ forced:true, forcedBy: myId } };
+      data.turn = { step:'difficultyPick', actingPlayerId: targetId, data:{ forced:true, forcedBy: seatId } };
     } else if(t.data.purpose==='forceCard'){
       const ctx = t.data.ctx;
       const doubled = { correct: ctx.reward.correct*2, wrong: ctx.reward.wrong*2 };
-      data.turn = { step:'question', actingPlayerId: targetId, data:{ ...ctx, reward: doubled, forced:true, forcedBy: myId } };
+      data.turn = { step:'question', actingPlayerId: targetId, data:{ ...ctx, reward: doubled, forced:true, forcedBy: seatId } };
     }
   });
 }
 
-async function pickDifficulty(diff){
+async function pickDifficulty(diff, seatId){
   await updateRoom(data=>{
     const t = data.turn;
-    if(!t || t.step!=='difficultyPick' || t.actingPlayerId!==myId) return false;
+    if(!t || t.step!=='difficultyPick' || t.actingPlayerId!==seatId) return false;
     if(!data.topics.length) return false;
     const catKey = data.topics[Math.floor(Math.random()*data.topics.length)];
     const cat = CATEGORIES[catKey];
@@ -1181,54 +1199,54 @@ async function pickDifficulty(diff){
     }
     const ctx = { catKey, q, diff, reward };
     if(isForceCard){
-      data.turn = { step:'forceCardIntro', actingPlayerId: myId, data: ctx };
+      data.turn = { step:'forceCardIntro', actingPlayerId: seatId, data: ctx };
     } else {
-      data.turn = { step:'question', actingPlayerId: myId, data:{ ...ctx, forced: t.data.forced, forcedBy: t.data.forcedBy || null } };
+      data.turn = { step:'question', actingPlayerId: seatId, data:{ ...ctx, forced: t.data.forced, forcedBy: t.data.forcedBy || null } };
     }
   });
 }
 
-async function respondForceCard(force){
+async function respondForceCard(force, seatId){
   await updateRoom(data=>{
     const t = data.turn;
-    if(!t || t.step!=='forceCardIntro' || t.actingPlayerId!==myId) return false;
+    if(!t || t.step!=='forceCardIntro' || t.actingPlayerId!==seatId) return false;
     if(!force){
-      data.turn = { step:'question', actingPlayerId: myId, data:{ ...t.data, forced:false, forcedBy:null } };
+      data.turn = { step:'question', actingPlayerId: seatId, data:{ ...t.data, forced:false, forcedBy:null } };
       return;
     }
-    const targets = data.players.filter(p=>p.id!==myId && !p.safe);
+    const targets = data.players.filter(p=>p.id!==seatId && !p.safe);
     if(targets.length===0){
-      data.turn = { step:'question', actingPlayerId: myId, data:{ ...t.data, forced:false, forcedBy:null } };
+      data.turn = { step:'question', actingPlayerId: seatId, data:{ ...t.data, forced:false, forcedBy:null } };
       pushLog(data, 'No valid targets (everyone else is Safe) — answering solo.');
       return;
     }
-    data.turn = { step:'targetPick', actingPlayerId: myId, data:{ purpose:'forceCard', ctx: t.data, targetIds: targets.map(p=>p.id) } };
+    data.turn = { step:'targetPick', actingPlayerId: seatId, data:{ purpose:'forceCard', ctx: t.data, targetIds: targets.map(p=>p.id) } };
   });
 }
 
-async function submitAnswer(chosenIndex){
+async function submitAnswer(chosenIndex, seatId){
   await updateRoom(data=>{
     const t = data.turn;
-    if(!t || t.step!=='question' || t.actingPlayerId!==myId) return false;
+    if(!t || t.step!=='question' || t.actingPlayerId!==seatId) return false;
     const q = t.data.q;
     const correct = chosenIndex === q.a;
     const reward = t.data.reward;
-    const player = data.players.find(p=>p.id===myId);
+    const player = data.players.find(p=>p.id===seatId);
     const amount = correct ? reward.correct : reward.wrong;
     let wormholeExtra = 0;
     if(player.wormhole){
       if(!correct) wormholeExtra = -8;
       player.wormhole = false;
     }
-    data.turn = { step:'result', actingPlayerId: myId, data:{ chosenIndex, correct, amount, wormholeExtra, catKey:t.data.catKey, q, diff:t.data.diff, forced: t.data.forced || false } };
+    data.turn = { step:'result', actingPlayerId: seatId, data:{ chosenIndex, correct, amount, wormholeExtra, catKey:t.data.catKey, q, diff:t.data.diff, forced: t.data.forced || false } };
   });
 }
 
-async function continueAfterResult(){
+async function continueAfterResult(seatId){
   await updateRoom(data=>{
     const t = data.turn;
-    if(!t || t.step!=='result' || t.actingPlayerId!==myId) return false;
-    const player = data.players.find(p=>p.id===myId);
+    if(!t || t.step!=='result' || t.actingPlayerId!==seatId) return false;
+    const player = data.players.find(p=>p.id===seatId);
     const total = t.data.amount + t.data.wormholeExtra;
     let newPos = player.pos + total;
     newPos = Math.max(0, Math.min(FINISH_INDEX, newPos));
@@ -1252,25 +1270,25 @@ async function continueAfterResult(){
     switch(type){
       case 'safe':
         player.safe = true;
-        data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'safe', text:`${player.name} is Safe! Can't be targeted until their own next turn.` } };
+        data.turn = { step:'landingEvent', actingPlayerId: seatId, data:{ type:'safe', text:`${player.name} is Safe! Can't be targeted until their own next turn.` } };
         break;
       case 'wormhole':
         player.wormhole = true;
-        data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'worm', text:`${player.name} is at a Wormhole. If their next question is wrong, they'll fall an extra 8 spaces.` } };
+        data.turn = { step:'landingEvent', actingPlayerId: seatId, data:{ type:'worm', text:`${player.name} is at a Wormhole. If their next question is wrong, they'll fall an extra 8 spaces.` } };
         break;
       case 'twist':
         player.twist = true;
-        data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'twist', text:`${player.name} landed on a Twist space! Next turn they can force a question onto a rival.` } };
+        data.turn = { step:'landingEvent', actingPlayerId: seatId, data:{ type:'twist', text:`${player.name} landed on a Twist space! Next turn they can force a question onto a rival.` } };
         break;
       case 'bonus':
-        data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'bonus', text:`${player.name} landed on a Bonus space and goes again!`, goAgain:true } };
+        data.turn = { step:'landingEvent', actingPlayerId: seatId, data:{ type:'bonus', text:`${player.name} landed on a Bonus space and goes again!`, goAgain:true } };
         break;
       case 'swap': {
-        const others = data.players.filter(p=>p.id!==myId);
+        const others = data.players.filter(p=>p.id!==seatId);
         if(others.length){
           const target = others[Math.floor(Math.random()*others.length)];
           const tmp = player.pos; player.pos = target.pos; target.pos = tmp;
-          data.turn = { step:'landingEvent', actingPlayerId: myId, data:{ type:'swap', text:`SWAP! ${player.name} traded places with ${target.name}.` } };
+          data.turn = { step:'landingEvent', actingPlayerId: seatId, data:{ type:'swap', text:`SWAP! ${player.name} traded places with ${target.name}.` } };
         } else {
           data.turn = null;
           advanceCurrentPlayer(data);
@@ -1284,12 +1302,12 @@ async function continueAfterResult(){
   });
 }
 
-async function acknowledgeLanding(){
+async function acknowledgeLanding(seatId){
   await updateRoom(data=>{
     const t = data.turn;
-    if(!t || t.step!=='landingEvent' || t.actingPlayerId!==myId) return false;
+    if(!t || t.step!=='landingEvent' || t.actingPlayerId!==seatId) return false;
     if(t.data.goAgain){
-      data.turn = { step:'difficultyPick', actingPlayerId: myId, data:{ forced:false } };
+      data.turn = { step:'difficultyPick', actingPlayerId: seatId, data:{ forced:false } };
     } else {
       data.turn = null;
       advanceCurrentPlayer(data);
@@ -1359,52 +1377,50 @@ function render(data){
 }
 
 /* ---- Lobby ---- */
-const joinForm = document.getElementById('join-form');
-const youCard = document.getElementById('you-card');
 const joinNameInput = document.getElementById('join-name-input');
 const joinAvatarRow = document.getElementById('join-avatar-row');
-let pendingAvatar = myAvatar;
+let pendingAvatar = null;
 
-function renderJoinAvatars(activePlayers){
-  const takenByOthers = activePlayers.filter(p=>p.id!==myId).map(p=>p.avatar);
+function renderJoinAvatars(data){
+  const taken = [...data.players, ...data.queue].map(p=>p.avatar);
   joinAvatarRow.innerHTML = AVATARS.map(av=>{
-    const taken = takenByOthers.includes(av.id);
+    const isTaken = taken.includes(av.id);
     const sel = pendingAvatar === av.id;
-    return `<div class="avatar-choice ${taken?'taken':''} ${sel?'selected':''}" data-avatar="${av.id}" title="${av.label}">${av.svg}</div>`;
+    return `<div class="avatar-choice ${isTaken?'taken':''} ${sel?'selected':''}" data-avatar="${av.id}" title="${av.label}">${av.svg}</div>`;
   }).join('');
   joinAvatarRow.querySelectorAll('.avatar-choice:not(.taken)').forEach(el=>{
     el.addEventListener('click', ()=>{
       pendingAvatar = el.dataset.avatar;
-      renderJoinAvatars(activePlayers);
+      renderJoinAvatars(data);
     });
   });
+  if(pendingAvatar===null){
+    const firstFree = AVATARS.find(av=>!taken.includes(av.id));
+    if(firstFree){ pendingAvatar = firstFree.id; renderJoinAvatars(data); }
+  }
 }
 
 function renderLobby(data){
-  const inPlayers = data.players.find(p=>p.id===myId);
-  const inQueue = data.queue.find(p=>p.id===myId);
-  const joined = !!(inPlayers || inQueue);
+  const mySeatsInRoom = mySeats
+    .map(s=> data.players.find(p=>p.id===s.id) || data.queue.find(p=>p.id===s.id) ? { seat:s, inPlayers: data.players.find(p=>p.id===s.id), inQueue: data.queue.find(p=>p.id===s.id) } : null)
+    .filter(Boolean);
 
-  joinForm.style.display = joined ? 'none' : 'flex';
-  youCard.style.display = joined ? 'flex' : 'none';
+  const mySeatsListEl = document.getElementById('my-seats-list');
+  mySeatsListEl.innerHTML = mySeatsInRoom.length ? mySeatsInRoom.map(({seat, inPlayers, inQueue})=>{
+    const status = inPlayers ? "In the lobby, ready to play." : `#${data.queue.findIndex(p=>p.id===seat.id)+1} in the queue.`;
+    return `<div class="roster-row me">
+      <div class="avatar-icon">${avatarSvg(seat.avatar)}</div>
+      <div class="nm">${escapeHtml(seat.name)} <span style="color:var(--muted); font-size:14px;">${status}</span></div>
+      <button class="leave-mini" data-leave="${seat.id}">✕ leave</button>
+    </div>`;
+  }).join('') : '<div class="empty-roster">No local players added yet.</div>';
+  mySeatsListEl.querySelectorAll('[data-leave]').forEach(btn=>{
+    btn.addEventListener('click', ()=> leaveRoom(btn.dataset.leave));
+  });
 
-  if(!joined){
-    if(myName) joinNameInput.value = myName;
-    renderJoinAvatars(data.players);
-  } else {
-    const me = inPlayers || inQueue;
-    document.getElementById('you-avatar-icon').innerHTML = avatarSvg(me.avatar);
-    document.getElementById('you-name').textContent = me.name;
-    const leaveBtn = document.getElementById('leave-btn');
-    if(inPlayers){
-      document.getElementById('you-status').textContent = "You're in! Waiting in the lobby.";
-      leaveBtn.style.display = 'inline-block';
-    } else {
-      const pos = data.queue.findIndex(p=>p.id===myId) + 1;
-      document.getElementById('you-status').textContent = `You're #${pos} in the queue — you'll be seated automatically.`;
-      leaveBtn.style.display = 'inline-block';
-    }
-  }
+  const roomFull = data.players.length >= 6;
+  renderJoinAvatars(data);
+  document.getElementById('join-btn').textContent = roomFull ? 'Join Queue' : 'Add Player';
 
   // topics
   const topicGrid = document.getElementById('topic-grid');
@@ -1422,45 +1438,47 @@ function renderLobby(data){
   document.getElementById('active-count').textContent = data.players.length;
   const activeRoster = document.getElementById('active-roster');
   activeRoster.innerHTML = data.players.length ? data.players.map(p=>`
-    <div class="roster-row ${p.id===myId?'me':''}">
+    <div class="roster-row ${isMine(p.id)?'me':''}">
       <div class="avatar-icon">${avatarSvg(p.avatar)}</div>
       <div class="nm">${escapeHtml(p.name)}</div>
-      ${p.id===myId ? '<span class="you-tag">YOU</span>' : ''}
+      ${isMine(p.id) ? '<span class="you-tag">YOURS</span>' : ''}
     </div>`).join('') : '<div class="empty-roster">No one has joined yet — be the first!</div>';
 
   // queue
   const queuePanel = document.getElementById('queue-panel');
   queuePanel.style.display = data.queue.length ? 'block' : 'none';
   document.getElementById('queue-roster').innerHTML = data.queue.map((p,i)=>`
-    <div class="roster-row ${p.id===myId?'me':''}">
+    <div class="roster-row ${isMine(p.id)?'me':''}">
       <span class="queue-num">#${i+1}</span>
       <div class="avatar-icon">${avatarSvg(p.avatar)}</div>
       <div class="nm">${escapeHtml(p.name)}</div>
-      ${p.id===myId ? '<span class="you-tag">YOU</span>' : ''}
+      ${isMine(p.id) ? '<span class="you-tag">YOURS</span>' : ''}
     </div>`).join('');
 
   // start button
   const startBtn = document.getElementById('start-game-btn');
-  const canStart = joined && !!inPlayers && data.players.length>=2 && data.topics.length>=1;
+  const haveASeatInPlay = mySeatsInRoom.some(m=>m.inPlayers);
+  const canStart = haveASeatInPlay && data.players.length>=2 && data.topics.length>=1;
   startBtn.disabled = !canStart;
-  startBtn.style.display = inPlayers ? 'inline-block' : 'none';
+  startBtn.style.display = haveASeatInPlay ? 'inline-block' : 'none';
 
   const errEl = document.getElementById('setup-error');
-  if(inPlayers && data.players.length<2) errEl.textContent = 'Waiting for at least one more player to join.';
-  else if(inPlayers && data.topics.length<1) errEl.textContent = 'Pick at least one topic before starting.';
+  if(mySeatsInRoom.length===0) errEl.textContent = 'Add at least one player above to join.';
+  else if(haveASeatInPlay && data.players.length<2) errEl.textContent = 'Waiting for at least one more player to join.';
+  else if(haveASeatInPlay && data.topics.length<1) errEl.textContent = 'Pick at least one topic before starting.';
   else errEl.textContent = '';
 }
 
-joinNameInput.addEventListener('input', ()=>{ myName = joinNameInput.value; });
 document.getElementById('join-btn').addEventListener('click', ()=>{
   const name = joinNameInput.value.trim();
   const errEl = document.getElementById('setup-error');
-  if(!name){ errEl.textContent = 'Enter a name to join.'; return; }
-  if(!pendingAvatar){ errEl.textContent = 'Pick a character to join.'; return; }
+  if(!name){ errEl.textContent = 'Enter a name to add this player.'; return; }
+  if(!pendingAvatar){ errEl.textContent = 'Pick a character.'; return; }
   errEl.textContent = '';
   joinRoom(name, pendingAvatar);
+  joinNameInput.value = '';
+  pendingAvatar = null;
 });
-document.getElementById('leave-btn').addEventListener('click', leaveRoom);
 document.getElementById('start-game-btn').addEventListener('click', startGame);
 
 function escapeHtml(str){
@@ -1516,9 +1534,9 @@ function renderStandings(data){
       p.twist ? '<span class="badge-flag twist">TWIST</span>' : ''
     ].join('');
     const isActive = data.currentPlayerId === p.id;
-    return `<div class="standing-row ${isActive?'active-turn':''} ${p.id===myId?'me':''}">
+    return `<div class="standing-row ${isActive?'active-turn':''} ${isMine(p.id)?'me':''}">
       <div class="avatar-icon">${avatarSvg(p.avatar)}</div>
-      <div class="nm">${escapeHtml(p.name)}${p.id===myId?' (you)':''}${flags}</div>
+      <div class="nm">${escapeHtml(p.name)}${isMine(p.id)?' (yours)':''}${flags}</div>
       <div class="pos">${p.pos}/${FINISH_INDEX}</div>
     </div>`;
   }).join('');
@@ -1530,14 +1548,14 @@ function renderTurnCard(data){
   const waitNote = document.getElementById('waiting-note');
   const player = data.players.find(p=>p.id===data.currentPlayerId);
   if(!player){ badge.innerHTML=''; takeBtn.style.display='none'; waitNote.textContent=''; return; }
-  badge.innerHTML = `<div class="avatar-icon">${avatarSvg(player.avatar)}</div><div class="name">${escapeHtml(player.name)}${player.id===myId?' (you)':''}</div>`;
-  const myTurnIdle = data.phase==='active' && !data.turn && data.currentPlayerId===myId;
+  badge.innerHTML = `<div class="avatar-icon">${avatarSvg(player.avatar)}</div><div class="name">${escapeHtml(player.name)}${isMine(player.id)?' (yours)':''}</div>`;
+  const myTurnIdle = data.phase==='active' && !data.turn && isMine(data.currentPlayerId);
   takeBtn.style.display = myTurnIdle ? 'inline-block' : 'none';
   if(data.phase==='finished'){
     waitNote.textContent = '';
   } else if(data.turn){
     waitNote.textContent = '';
-  } else if(data.currentPlayerId===myId){
+  } else if(isMine(data.currentPlayerId)){
     waitNote.textContent = '';
   } else {
     waitNote.textContent = `Waiting for ${player.name}...`;
@@ -1567,14 +1585,15 @@ function spectatorTag(actingName){
 function renderTurnModal(data){
   const t = data.turn;
   if(!t){ closeModal(); return; }
-  const iAmActing = t.actingPlayerId === myId;
-  const actingPlayer = data.players.find(p=>p.id===t.actingPlayerId) || { name:'Someone' };
+  const seatId = t.actingPlayerId;
+  const iAmActing = isMine(seatId);
+  const actingPlayer = data.players.find(p=>p.id===seatId) || { name:'Someone' };
 
   if(t.step==='twistOffer'){
     modalEl.innerHTML = `
       ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
       <div class="event-banner twist">TWIST SPACE TRIGGERED</div>
-      <h3>Force this question onto a rival?</h3>
+      <h3>${escapeHtml(actingPlayer.name)}, force this question onto a rival?</h3>
       <p class="sub">${escapeHtml(actingPlayer.name)} landed on a Twist space last turn. Forcing pays fixed odds: +10 if the target is right, -3 if they're wrong. Safe players can't be targeted.</p>
       <div class="btn-row">
         <button class="btn secondary" id="twist-yes" ${iAmActing?'':'disabled'}>Force It</button>
@@ -1582,8 +1601,8 @@ function renderTurnModal(data){
       </div>`;
     openModal();
     if(iAmActing){
-      document.getElementById('twist-yes').addEventListener('click', ()=>respondTwistOffer(true));
-      document.getElementById('twist-no').addEventListener('click', ()=>respondTwistOffer(false));
+      document.getElementById('twist-yes').addEventListener('click', ()=>respondTwistOffer(true, seatId));
+      document.getElementById('twist-no').addEventListener('click', ()=>respondTwistOffer(false, seatId));
     }
     return;
   }
@@ -1600,7 +1619,7 @@ function renderTurnModal(data){
     openModal();
     if(iAmActing){
       modalEl.querySelectorAll('[data-target]').forEach(btn=>{
-        btn.addEventListener('click', ()=>pickTarget(btn.dataset.target));
+        btn.addEventListener('click', ()=>pickTarget(btn.dataset.target, seatId));
       });
     }
     return;
@@ -1611,7 +1630,7 @@ function renderTurnModal(data){
     modalEl.innerHTML = `
       ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
       ${isForced ? `<div class="event-banner twist">FORCED QUESTION for ${escapeHtml(actingPlayer.name)}!</div>` : ''}
-      <h3>${isForced ? `${escapeHtml(actingPlayer.name)}, choose a difficulty` : 'Choose your difficulty'}</h3>
+      <h3>${escapeHtml(actingPlayer.name)}, ${isForced ? 'choose a difficulty' : 'choose your difficulty'}</h3>
       <p class="sub">${isForced ? 'Forced questions always pay +10 / -3 regardless of difficulty chosen.' : 'Higher difficulty = bigger risk and reward.'}</p>
       <div class="diff-grid">
         ${Object.entries(DIFFICULTY).map(([key,d])=>{
@@ -1626,7 +1645,7 @@ function renderTurnModal(data){
     openModal();
     if(iAmActing){
       modalEl.querySelectorAll('[data-diff]').forEach(btn=>{
-        btn.addEventListener('click', ()=>pickDifficulty(btn.dataset.diff));
+        btn.addEventListener('click', ()=>pickDifficulty(btn.dataset.diff, seatId));
       });
     }
     return;
@@ -1638,7 +1657,7 @@ function renderTurnModal(data){
       ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
       <div class="cat-tag">${CATEGORIES[t.data.catKey].emoji} ${CATEGORIES[t.data.catKey].label} &middot; ${DIFFICULTY[t.data.diff].label}</div>
       <div class="event-banner force">⚡ FORCE CARD!</div>
-      <p class="sub">This question can be sent to a rival. Answer it solo for normal odds, or force it onto someone else and double the stakes for whoever ends up answering.</p>
+      <p class="sub">${escapeHtml(actingPlayer.name)}, this question can be sent to a rival. Answer it solo for normal odds, or force it onto someone else and double the stakes for whoever ends up answering.</p>
       ${rewardBadgeHtml(t.data.reward)}
       <p class="sub" style="margin-top:-6px;">Forced odds: <strong style="color:var(--accent2);">+${doubled.correct} / ${doubled.wrong}</strong></p>
       <div class="btn-row">
@@ -1647,8 +1666,8 @@ function renderTurnModal(data){
       </div>`;
     openModal();
     if(iAmActing){
-      document.getElementById('force-yes').addEventListener('click', ()=>respondForceCard(true));
-      document.getElementById('force-no').addEventListener('click', ()=>respondForceCard(false));
+      document.getElementById('force-yes').addEventListener('click', ()=>respondForceCard(true, seatId));
+      document.getElementById('force-no').addEventListener('click', ()=>respondForceCard(false, seatId));
     }
     return;
   }
@@ -1674,7 +1693,7 @@ function renderTurnModal(data){
           const chosen = +btn.dataset.i;
           btns[q.a].classList.add('correct');
           if(chosen !== q.a) btn.classList.add('wrong');
-          setTimeout(()=> submitAnswer(chosen), 900);
+          setTimeout(()=> submitAnswer(chosen, seatId), 900);
         });
       });
     }
@@ -1683,7 +1702,7 @@ function renderTurnModal(data){
 
   if(t.step==='result'){
     const { correct, amount, wormholeExtra } = t.data;
-    const player = data.players.find(p=>p.id===t.actingPlayerId) || {name:'Player'};
+    const player = data.players.find(p=>p.id===seatId) || {name:'Player'};
     modalEl.innerHTML = `
       ${!iAmActing ? spectatorTag(actingPlayer.name) : ''}
       <div class="result-box">
@@ -1694,7 +1713,7 @@ function renderTurnModal(data){
       </div>`;
     openModal();
     if(iAmActing){
-      document.getElementById('continue-btn').addEventListener('click', continueAfterResult);
+      document.getElementById('continue-btn').addEventListener('click', ()=>continueAfterResult(seatId));
     }
     return;
   }
@@ -1706,7 +1725,7 @@ function renderTurnModal(data){
       <div class="btn-row"><button class="btn" id="event-continue" ${iAmActing?'':'disabled'}>OK</button></div>`;
     openModal();
     if(iAmActing){
-      document.getElementById('event-continue').addEventListener('click', acknowledgeLanding);
+      document.getElementById('event-continue').addEventListener('click', ()=>acknowledgeLanding(seatId));
     }
     return;
   }
