@@ -69,6 +69,35 @@
   }
   header.app-header .back-link:hover{opacity:.8;}
 
+  .room-bar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    margin-top:16px;
+  }
+  .room-code-label{
+    font-family:'Press Start 2P', monospace;
+    font-size:11px;
+    color:var(--muted);
+  }
+  .room-code{
+    font-family:'Press Start 2P', monospace;
+    font-size:14px;
+    color:var(--accent);
+    background:#0b0b1e;
+    border:2px solid var(--accent);
+    border-radius:6px;
+    padding:6px 10px;
+    letter-spacing:2px;
+  }
+  .tiny-btn{
+    font-size:11px;
+    padding:9px 14px;
+    box-shadow:0 3px 0 rgba(0,0,0,.3);
+  }
+
   .status-banner{
     max-width:1100px;
     margin:0 auto 16px;
@@ -426,6 +455,18 @@
     overflow-y:auto;
   }
   .modal h3{margin:0 0 6px; color:var(--accent); font-size:15px;}
+  .tutorial-body{
+    font-size:17px;
+    line-height:1.5;
+    max-height:52vh;
+    overflow-y:auto;
+    padding-right:4px;
+    margin-bottom:8px;
+  }
+  .tutorial-body p{margin:0 0 12px;}
+  .tutorial-body strong{color:var(--accent2);}
+  .tutorial-legend{margin-bottom:14px;}
+  .tutorial-legend .legend-row{font-size:16px; color:var(--text); margin-bottom:8px;}
   .modal .sub{color:var(--muted); font-size:16px; margin-bottom:14px;}
   .spectator-tag{
     display:inline-block;
@@ -577,8 +618,17 @@
 
 <header class="app-header">
   <h1>&#127922; TRIVIA QUEST</h1>
-  <p>Answer trivia. Move your piece. Watch your back. Live &mdash; everyone on this page plays together.</p>
+  <p>Answer trivia. Move your piece. Watch your back. Live &mdash; everyone on this game code plays together.</p>
   <a class="back-link" href="index.html">&larr; Back to the Arcade</a>
+  <div class="room-bar">
+    <span class="room-code-label">GAME CODE</span>
+    <span class="room-code" id="room-code-display"></span>
+    <button class="btn secondary tiny-btn" id="copy-link-btn" type="button">Copy Invite Link</button>
+    <button class="btn tiny-btn" id="how-to-play-btn" type="button">How to Play</button>
+    <button class="btn secondary tiny-btn" id="new-game-btn" type="button">New Game</button>
+    <button class="btn danger tiny-btn" id="reset-game-btn" type="button">Reset This Game</button>
+  </div>
+  <div class="hint" id="copy-link-hint" style="min-height:18px;"></div>
 </header>
 
 <div class="status-banner" id="status-banner"></div>
@@ -670,6 +720,32 @@
   <div class="modal" id="modal-content"></div>
 </div>
 
+<!-- ============ TUTORIAL MODAL (independent of turn state) ============ -->
+<div class="modal-overlay" id="tutorial-overlay">
+  <div class="modal" id="tutorial-content">
+    <h3>&#127922; How to Play</h3>
+    <p class="sub">This is a live shared game &mdash; you can open this any time, mid-turn, without affecting anyone else.</p>
+    <div class="tutorial-body">
+      <p><strong>Goal:</strong> be the first to reach the final space (41) on the board.</p>
+      <p><strong>Joining:</strong> pick a name and character. Up to 6 players are active on the board at once &mdash; anyone past that is placed in a live queue and auto-seated as slots open up.</p>
+      <p><strong>Your turn:</strong> tap Take Turn, then choose a difficulty. Easy pays small and safe, Genius pays big but the wrong-answer penalty is bigger too. The exact +/- reward is always shown before you answer.</p>
+      <p><strong>&#9889; Force Cards:</strong> roughly 1 in 4 questions can be sent to a rival instead of answering it yourself &mdash; whoever ends up answering gets double the reward and double the penalty.</p>
+      <p><strong>Board spaces:</strong></p>
+      <div class="tutorial-legend">
+        <div class="legend-row"><div class="legend-swatch" style="background:#0f2a3a;border:1px solid #2fb4e0;"></div><strong>Safe</strong> &ndash; can't be targeted by a Twist or Force Card until your own next turn.</div>
+        <div class="legend-row"><div class="legend-swatch" style="background:#2a0f3a;border:1px solid #b04fff;"></div><strong>Wormhole</strong> &ndash; if your very next question is wrong, you fall an extra 8 spaces.</div>
+        <div class="legend-row"><div class="legend-swatch" style="background:#3a0f24;border:1px solid #ff4d6d;"></div><strong>Twist</strong> &ndash; next turn you can force your question onto a rival at fixed +10 / -3 odds.</div>
+        <div class="legend-row"><div class="legend-swatch" style="background:#123a12;border:1px solid #5bffa1;"></div><strong>Bonus</strong> &ndash; go again immediately.</div>
+        <div class="legend-row"><div class="legend-swatch" style="background:#3a3a0f;border:1px solid #ffce00;"></div><strong>Swap</strong> &ndash; trade board positions with a random rival.</div>
+      </div>
+      <p><strong>Between rounds:</strong> once someone wins, the bottom half of that round's standings rotate to the back of the queue, and the rest reset and refill from the front of the queue for the next round.</p>
+      <p><strong>Sharing:</strong> use the Game Code / Copy Invite Link button up top &mdash; anyone who opens that link joins this exact game.</p>
+      <p><strong>Stuck?</strong> "Reset This Game" (top of the page) wipes this game back to an empty lobby for everyone &mdash; use it if a turn ever gets stuck. "New Game" spins up a brand new game code instead, leaving this one untouched.</p>
+    </div>
+    <div class="btn-row"><button class="btn" id="tutorial-close-btn">Got It</button></div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -690,7 +766,14 @@ const firebaseConfig = {
   messagingSenderId: "220270159224",
   appId: "1:220270159224:web:14d8143aee53f52cd1d48d"
 };
-const ROOM_ID = 'main';
+function randomRoomCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
+  let code = '';
+  for(let i=0;i<5;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+const urlParams = new URLSearchParams(location.search);
+const ROOM_ID = (urlParams.get('room') || 'main').toUpperCase().slice(0, 20);
 
 const statusBanner = document.getElementById('status-banner');
 function showStatus(text, level){
@@ -1238,6 +1321,12 @@ async function startNextRound(){
   });
 }
 
+async function resetGame(){
+  await updateRoom(data=>{
+    return Object.assign(data, initialRoomData(), { log: [{ text: 'Game was reset. Starting fresh.', ts: Date.now() }] });
+  });
+}
+
 /* ============================================================
    RENDERING
    ============================================================ */
@@ -1637,6 +1726,45 @@ function renderWinnerModal(data){
   openModal();
   document.getElementById('next-round-btn').addEventListener('click', startNextRound);
 }
+
+/* ============================================================
+   HEADER CONTROLS (room code / invite / tutorial / reset)
+   ============================================================ */
+document.getElementById('room-code-display').textContent = ROOM_ID;
+
+document.getElementById('new-game-btn').addEventListener('click', ()=>{
+  const code = randomRoomCode();
+  location.href = location.pathname + '?room=' + code;
+});
+
+document.getElementById('copy-link-btn').addEventListener('click', async ()=>{
+  const url = new URL(location.href);
+  url.searchParams.set('room', ROOM_ID);
+  const hintEl = document.getElementById('copy-link-hint');
+  try{
+    await navigator.clipboard.writeText(url.toString());
+    hintEl.textContent = 'Invite link copied — share it so others join this exact game.';
+  } catch(err){
+    hintEl.textContent = 'Copy this link to invite others: ' + url.toString();
+  }
+  setTimeout(()=>{ hintEl.textContent = ''; }, 6000);
+});
+
+document.getElementById('reset-game-btn').addEventListener('click', ()=>{
+  const ok = confirm(`Reset game "${ROOM_ID}" for everyone? This clears all players, the board, and the queue back to an empty lobby.`);
+  if(ok) resetGame();
+});
+
+const tutorialOverlay = document.getElementById('tutorial-overlay');
+document.getElementById('how-to-play-btn').addEventListener('click', ()=>{
+  tutorialOverlay.classList.add('active');
+});
+document.getElementById('tutorial-close-btn').addEventListener('click', ()=>{
+  tutorialOverlay.classList.remove('active');
+});
+tutorialOverlay.addEventListener('click', (e)=>{
+  if(e.target === tutorialOverlay) tutorialOverlay.classList.remove('active');
+});
 
 /* ============================================================
    INIT
